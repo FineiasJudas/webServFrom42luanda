@@ -1,8 +1,8 @@
-#include "WebServ/WebServ.hpp"
+#include "../includes/Headers.hpp"
 
 int main(void)
 {
-    WebServ server;
-    server.startServer(8080, "./www");
+    Server  server("0.0.0.0", 8080);
+    server.start();
     return (0);
 }

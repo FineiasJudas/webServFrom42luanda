@@ -1,27 +1,36 @@
 NAME = webserv
 
+SRCS =  src/main.cpp \
+		src/core/Buffer.cpp \
+		src/core/Connection.cpp \
+		src/core/Server.cpp \
+		src/core/PollerEpoll.cpp \
+		src/config/Config.cpp
+
+OBJS = $(SRCS:.cpp=.o)
+
 CXX = c++
 
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 
-SRC = src/main.cpp src/WebServ/WebServ.cpp
+INCLUDES = -I./includes
 
-OBJS = $(SRC:.cpp=.o)
-
-HEADERS = src/WebServ/WebServ.hpp
+RM = rm -f
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $(NAME)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(NAME) $(OBJS)
 
-%.o: %.cpp $(HEADERS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
-	rm -f $(OBJS)
+	$(RM) $(OBJS)
 
-fclean:	clean
-	rm -f $(NAME)
+fclean: clean
+	$(RM) $(NAME)
 
-re:	fclean all
+re: fclean all
+
+.PHONY: all clean fclean re
