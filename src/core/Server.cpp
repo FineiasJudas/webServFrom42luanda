@@ -1,17 +1,5 @@
 #include "../../includes/Headers.hpp"
 
-void countPrint()
-{
-    int count = 10;
-    while (count > 0)
-    {
-        usleep(500000);
-        std::cout << "Respondendo cliente em: [" << count << "]" << std::endl;
-        count --;
-    }
-    
-}
-
 Server::Server(const std::string &host, int port)
     : server_fd(-1), port(port), host(host)
 {
@@ -85,11 +73,22 @@ void    Server::handleNewConnection()
 
     setNonBlocking(client_fd);
     poller.addFd(client_fd, EPOLLIN); // Monitora cliente para leitura
+    last_activity[client_fd] = time(0);
     std::cout << "Nova conexão aceita do clinete: " << client_addr.sin_addr.s_addr << std::endl;
-    countPrint();
+
     send(client_fd, "Bem-vindo ao WebServ!\n", 24, 0);
+    char buffer[1024];
+
+    ssize_t bytes_recvd = recv(client_fd, buffer, sizeof(buffer) - 1, MSG_PEEK);
+    if (bytes_recvd > 0)
+    {
+        buffer[bytes_recvd] = '\0';
+        std::cout << "Dados recebidos do cliente: " << buffer << std::endl;
+    }
+
     close(client_fd);
 }
+
 
 void    Server::handleClientData(Connection &conn)
 {
@@ -103,19 +102,37 @@ void    Server::handleClientData(Connection &conn)
         {
             std::cout << "Conexão fechada: fd=" << conn.getFd() << std::endl;
             poller.removeFd(conn.getFd());
+            last_activity.erase(conn.getFd());
             conn.close();
         }
         return ;
     }
+    last_activity[conn.getFd()] = time(0);
     // Ecoa os dados recebidos (exemplo simples)
     conn.write(buffer, bytes);
 }
 
-void    Server::start()
+void Server::start()
 {
     while (true)
     {
-        std::vector<struct epoll_event> events = poller.wait(1000); // Timeout de 1 segundo
+        std::vector<struct epoll_event> events = poller.wait(1000);
+        time_t      now = time(0);
+        for (std::map<int, time_t>::iterator it = last_activity.begin(); it != last_activity.end();)
+        {
+            if (now - it->second > 30)
+            {
+                std::cout << "Timeout: fechando fd=" << it->first << std::endl;
+                Connection conn(it->first);
+                poller.removeFd(it->first);
+                conn.close();
+                last_activity.erase(it++);
+            }
+            else
+                ++it;
+        }
+
+        // Processa eventos
         for (std::vector<struct epoll_event>::iterator it = events.begin(); it != events.end(); ++it)
         {
             if (it->data.fd == server_fd)

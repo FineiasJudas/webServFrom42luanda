@@ -49,5 +49,6 @@ std::vector<struct epoll_event> Poller::wait(int timeout)
         std::cerr << "Erro em epoll_wait: " << strerror(errno) << std::endl;
         return (std::vector<struct epoll_event>());
     }
+    std::cout << "Eventos detectados: " << nfds << std::endl;
     return (std::vector<struct epoll_event>(events, events + nfds));
 }

@@ -12,6 +12,7 @@ class   Server
         int         port;
         Poller      poller;
         std::string host;
+        std::map<int, time_t>   last_activity;
 
         int     createSocket();
         void    setNonBlocking(int sockfd);
