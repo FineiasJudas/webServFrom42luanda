@@ -17,19 +17,6 @@
 # include <netinet/in.h>
 # include <sys/select.h>
 
-# include "../src/core/Server.hpp"
-# include "../src/core/Buffer.hpp"
-# include "../src/core/Poller.hpp"
-# include "../src/core/Connection.hpp"
-# include "../src/utils/Utils.hpp"
-# include "../src/utils/Logger.hpp"
-# include "../src/http/Request.hpp"
-# include "../src/http/Response.hpp"
-# include "../src/http/HttpParser.hpp"
-# include "../src/http/Router.hpp"
-# include "../src/cgi/CgiHandler.hpp"
-# include "../src/cgi/StaticFiles.hpp"
-# include "../src/config/Config.hpp"
-# include "../src/config/ConfigParser.hpp"
+
 
 #endif

@@ -1,11 +1,6 @@
 NAME = webserv
 
 SRCS =  src/main.cpp \
-		src/core/Buffer.cpp \
-		src/core/Connection.cpp \
-		src/core/Server.cpp \
-		src/core/PollerEpoll.cpp \
-		src/config/Config.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 
