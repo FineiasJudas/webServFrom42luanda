@@ -2,20 +2,24 @@
 #define POLLER_HPP
 
 #include "../../includes/Headers.hpp"
+#include <sys/epoll.h>
+#include <vector>
+
+#define MAX_EVENTS 10
 
 class   Poller
 {
     private:
-        int     epoll_fd; // File descriptor do epoll
-        static const int    MAX_EVENTS = 10; // Máximo de eventos por wait
+        int epoll_fd;
 
     public:
         Poller();
         ~Poller();
-        void    addFd(int fd, uint32_t events); // Adiciona FD para monitoramento
-        void    removeFd(int fd); // Remove FD
-        std::vector<struct epoll_event> wait(int timeout); // Espera por eventos
 
+        void    addFd(int fd, uint32_t events);
+        void    modifyFd(int fd, uint32_t events);  // <--- NOVO
+        void    removeFd(int fd);
+        std::vector<struct epoll_event> wait(int timeout);
 };
 
 #endif

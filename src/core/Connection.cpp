@@ -1,41 +1,41 @@
 #include "../../includes/Headers.hpp"
 
-Connection::Connection(int fd) : fd(fd) {}
+Connection::Connection(int fd) : fd(fd) {
+    // Garante não-bloqueante
+    int flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
 
-Connection::~Connection()
-{
+Connection::~Connection() {
     close();
 }
 
-int Connection::getFd() const
-{
-    return (fd);
+int Connection::getFd() const {
+    return fd;
 }
 
-ssize_t Connection::read(char* buffer, size_t size)
-{
-    ssize_t     bytes;
-
-    bytes = ::read(fd, buffer, size);
-    if (bytes < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
-        std::cerr << "Erro na leitura: " << strerror(errno) << std::endl;
-    return (bytes);
+Buffer& Connection::getInputBuffer() {
+    return input_buffer;
 }
 
-ssize_t Connection::write(const char* buffer, size_t size)
-{
-    ssize_t     bytes;
-
-    bytes = ::write(fd, buffer, size);
-    if (bytes < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
-        std::cerr << "Erro na escrita: " << strerror(errno) << std::endl;
-    return (bytes);
+Buffer& Connection::getOutputBuffer() {
+    return output_buffer;
 }
 
-void    Connection::close()
-{
-    if (fd != -1)
-    {
+ssize_t Connection::read(char* buffer, size_t size) {
+    ssize_t bytes = ::read(fd, buffer, size);
+    // NÃO CHECA errno! (proibido)
+    return bytes;
+}
+
+ssize_t Connection::write(const char* data, size_t size) {
+    ssize_t bytes = ::write(fd, data, size);
+    // NÃO CHECA errno!
+    return bytes;
+}
+
+void Connection::close() {
+    if (fd != -1) {
         ::close(fd);
         fd = -1;
     }

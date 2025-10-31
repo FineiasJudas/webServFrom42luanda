@@ -3,21 +3,27 @@
 
 #include "../../includes/Headers.hpp"
 #include "Buffer.hpp"
+#include "Buffer.hpp"
+#include <sys/types.h>
 
-class   Connection
+class Connection
 {
-    private:
-        int     fd; // File descriptor da conexão
-        Buffer  buffer; // Buffer para leitura/escrita
+private:
+    int fd;
+    Buffer input_buffer;
+    Buffer output_buffer;
 
-    public:
-        Connection(int fd);
-        ~Connection();
-        int     getFd() const;
-        ssize_t     read(char* buffer, size_t size); // Lê dados do cliente
-        ssize_t     write(const char* buffer, size_t size); // Escreve dados para o cliente
-        void    close(); // Fecha a conexão
+public:
+    explicit Connection(int fd);
+    ~Connection();
 
+    int getFd() const;
+    Buffer& getInputBuffer();
+    Buffer& getOutputBuffer();
+
+    ssize_t read(char* buffer, size_t size);
+    ssize_t write(const char* data, size_t size);
+    void close();
 };
 
 #endif

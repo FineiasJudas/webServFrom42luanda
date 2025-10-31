@@ -1,146 +1,159 @@
 #include "../../includes/Headers.hpp"
 
-Server::Server(const std::string &host, int port)
-    : server_fd(-1), port(port), host(host)
+Server::Server(int port)
 {
-    server_fd = createSocket();
-    poller.addFd(server_fd, EPOLLIN);// Monitora socket do servidor para novas conexões
-}
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-Server::~Server()
-{
-    if (server_fd != -1)
-        close(server_fd);
-}
+    if (server_fd < 0)
+    {
+        std::cerr << "Erro no socket\n";
+        return;
+    }
 
-int Server::createSocket()
-{
-    int     fd;
+    int opt = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
     sockaddr_in addr;
-
-    fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0)
-        return std::cerr << "Erro ao criar socket: " << strerror(errno) << std::endl, (-1);
-
-    setNonBlocking(fd);
-
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
 
-    if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
-        return std::cerr << "Erro no bind: " << strerror(errno) << std::endl, (-1);
+    if (bind(server_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        std::cerr << "Erro no bind\n";
+        return;
+    }
 
-    if (listen(fd, 10) < 0)
-        return std::cerr << "Erro no listen: " << strerror(errno) << std::endl, (-1);
+    if (listen(server_fd, 10) < 0) {
+        std::cerr << "Erro no listen\n";
+        return;
+    }
 
-    std::cout << "Servidor ouvindo em " << host << ":" << port << std::endl;
+    // Não-bloqueante
+    int flags = fcntl(server_fd, F_GETFL, 0);
+    fcntl(server_fd, F_SETFL, flags | O_NONBLOCK);
 
-    return (fd);
+    poller.addFd(server_fd, EPOLLIN);
+    std::cout << "Servidor ouvindo em 0.0.0.0:" << port << "\n";
 }
 
-void    Server::setNonBlocking(int sockfd)
-{
-    int     flags;
-
-    flags = fcntl(sockfd, F_GETFL, 0);
-    if (flags == -1)
-    {
-        std::cerr << "Erro em fcntl F_GETFL: " << strerror(errno) << std::endl;
-        return ;
+Server::~Server() {
+    for (std::map<int, Connection*>::iterator it = connections.begin(); it != connections.end(); ++it) {
+        delete it->second;
     }
-    if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1)
-    {
-        std::cerr << "Erro em fcntl F_SETFL: " << strerror(errno) << std::endl;
-        return ;
+    close(server_fd);
+}
+
+void Server::handleNewConnection() {
+    sockaddr_in client_addr;
+    socklen_t len = sizeof(client_addr);
+    int client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &len);
+    if (client_fd < 0) {
+        return;  // EAGAIN esperado
+    }
+
+    Connection* conn = new Connection(client_fd);
+    connections[client_fd] = conn;
+    last_activity[client_fd] = time(NULL);
+    poller.addFd(client_fd, EPOLLIN);
+    std::cout << "Nova conexão aceita: fd=" << client_fd << "\n";
+}
+
+void Server::tryParseAndRespond(Connection* conn) {
+    Buffer& in = conn->getInputBuffer();
+    if (!in.contains("\r\n\r\n")) return;
+
+    // Membro 2: parsing HTTP
+    std::string request = in.toString();
+    std::cout << "Requisição completa recebida:\n" << request << "\n";
+
+    // Resposta HTTP simulada
+    std::string response =
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/plain\r\n"
+        "Content-Length: 13\r\n"
+        "\r\n"
+        "Hello, World!";
+
+    Buffer& out = conn->getOutputBuffer();
+    out.append(response);
+
+    // Ativa escrita
+    poller.modifyFd(conn->getFd(), EPOLLIN | EPOLLOUT);
+    in.clear();
+}
+
+void Server::sendFromOutputBuffer(Connection* conn) {
+    Buffer& out = conn->getOutputBuffer();
+    if (out.empty()) return;
+
+    ssize_t sent = conn->write(out.data(), out.size());
+    if (sent > 0) {
+        out.consume(sent);
+        last_activity[conn->getFd()] = time(NULL);
+    }
+
+    if (out.empty()) {
+        poller.modifyFd(conn->getFd(), EPOLLIN);
     }
 }
 
-void    Server::handleNewConnection()
-{
-    int     client_fd;
-    sockaddr_in     client_addr;
-    socklen_t       addr_len;
+void Server::handleClientEvent(struct epoll_event& ev) {
+    int fd = ev.data.fd;
+    Connection* conn = connections[fd];
 
-    addr_len = sizeof(client_addr);
-    client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &addr_len);
+    if (ev.events & EPOLLIN) {
+        char temp[1024];
+        ssize_t bytes = conn->read(temp, sizeof(temp));
 
-    if (client_fd < 0)
-    {
-        std::cerr << "Erro no accept: " << strerror(errno) << std::endl;
-        return ;
-    }
-
-    setNonBlocking(client_fd);
-    poller.addFd(client_fd, EPOLLIN); // Monitora cliente para leitura
-    last_activity[client_fd] = time(0);
-    std::cout << "Nova conexão aceita do clinete: " << client_addr.sin_addr.s_addr << std::endl;
-
-    send(client_fd, "Bem-vindo ao WebServ!\n", 24, 0);
-    char buffer[1024];
-
-    ssize_t bytes_recvd = recv(client_fd, buffer, sizeof(buffer) - 1, MSG_PEEK);
-    if (bytes_recvd > 0)
-    {
-        buffer[bytes_recvd] = '\0';
-        std::cout << "Dados recebidos do cliente: " << buffer << std::endl;
-    }
-
-    close(client_fd);
-}
-
-
-void    Server::handleClientData(Connection &conn)
-{
-    ssize_t     bytes;
-    char    buffer[1024];
-
-    bytes = conn.read(buffer, sizeof(buffer));
-    if (bytes <= 0)
-    {
-        if (bytes == 0 || errno == ECONNRESET)
-        {
-            std::cout << "Conexão fechada: fd=" << conn.getFd() << std::endl;
-            poller.removeFd(conn.getFd());
-            last_activity.erase(conn.getFd());
-            conn.close();
+        if (bytes > 0) {
+            conn->getInputBuffer().append(temp, bytes);
+            last_activity[fd] = time(NULL);
+            tryParseAndRespond(conn);
+        } else if (bytes == 0) {
+            std::cout << "Cliente fechou conexão: fd=" << fd << "\n";
+            goto cleanup;
+        } else {
+            // EAGAIN → nada a fazer
         }
-        return ;
     }
-    last_activity[conn.getFd()] = time(0);
-    // Ecoa os dados recebidos (exemplo simples)
-    conn.write(buffer, bytes);
+
+    if (ev.events & EPOLLOUT) {
+        sendFromOutputBuffer(conn);
+    }
+
+    return;
+
+cleanup:
+    poller.removeFd(fd);
+    delete conn;
+    connections.erase(fd);
+    last_activity.erase(fd);
 }
 
-void Server::start()
-{
-    while (true)
-    {
+void Server::start() {
+    while (true) {
         std::vector<struct epoll_event> events = poller.wait(1000);
-        time_t      now = time(0);
-        for (std::map<int, time_t>::iterator it = last_activity.begin(); it != last_activity.end();)
-        {
-            if (now - it->second > 30)
-            {
-                std::cout << "Timeout: fechando fd=" << it->first << std::endl;
-                Connection conn(it->first);
+
+        // Timeout: fecha inativos
+        time_t now = time(NULL);
+        for (std::map<int, time_t>::iterator it = last_activity.begin(); it != last_activity.end(); ) {
+            if (now - it->second > 30) {
+                std::cout << "Timeout: fd=" << it->first << "\n";
+                Connection* conn = connections[it->first];
                 poller.removeFd(it->first);
-                conn.close();
+                delete conn;
+                connections.erase(it->first);
                 last_activity.erase(it++);
-            }
-            else
+            } else {
                 ++it;
+            }
         }
 
-        // Processa eventos
-        for (std::vector<struct epoll_event>::iterator it = events.begin(); it != events.end(); ++it)
-        {
-            if (it->data.fd == server_fd)
+        for (size_t i = 0; i < events.size(); ++i) {
+            if (events[i].data.fd == server_fd) {
                 handleNewConnection();
-            else
-            {
-                Connection conn(it->data.fd);
-                handleClientData(conn);
+            } else {
+                handleClientEvent(events[i]);
             }
         }
     }
