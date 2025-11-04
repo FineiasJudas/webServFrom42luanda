@@ -1,8 +1,9 @@
 #include "../includes/Headers.hpp"
 
-
-int main() {
-    Server server(8080);
+int main()
+{
+    Server  server(8080);
     server.start();
-    return 0;
+
+    return (0);
 }

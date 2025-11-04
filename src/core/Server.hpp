@@ -4,25 +4,26 @@
 #include "../../includes/Headers.hpp"
 #include "Poller.hpp"
 #include "Connection.hpp"
-#include <map>
-#include <ctime>
+#include <sys/epoll.h>
+#include <vector>
 
-class Server {
-private:
-    int server_fd;
-    Poller poller;
-    std::map<int, Connection*> connections;
-    std::map<int, time_t> last_activity;
+class   Server
+{
+    private:
+        int     server_fd;
+        Poller  poller;
+        std::map<int, Connection *>  connections;
+        std::map<int, time_t>   last_activity;
 
-    void handleNewConnection();
-    void handleClientEvent(struct epoll_event& ev);
-    void tryParseAndRespond(Connection* conn);
-    void sendFromOutputBuffer(Connection* conn);
+        void    handleNewConnection();
+        void    handleClientEvent(struct epoll_event &ev);
+        void    tryParseAndRespond(Connection *conn);
+        void    sendFromOutputBuffer(Connection *conn);
 
-public:
-    Server(int port);
-    ~Server();
-    void start();
+    public:
+        Server(int port);
+        ~Server();
+        void    start();
 };
 
 #endif
