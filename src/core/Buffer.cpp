@@ -1,56 +1,71 @@
-#include "../../includes/Headers.hpp"
+#include "Buffer.hpp"
 
-void    Buffer::append(const char* src, size_t len)
+void    Buffer::append(const char *src, size_t len)
 {
-    contentData.insert(contentData.end(), src, src + len);
+    content.insert(content.end(), src, src + len);
 }
 
-void    Buffer::append(const std::string& str) {
-    append(str.c_str(), str.size());
+void    Buffer::append(const std::string &str)
+{
+    content.insert(content.end(), str.begin(), str.end());
 }
 
 const std::vector<char> &Buffer::getData() const
 {
-    return (contentData);
+    return (content);
 }
 
-char *Buffer::data()
+char    *Buffer::data()
 {
-    return (contentData.empty() ? 0 : &contentData[0]);
+    return (&content[0]);
 }
 
 size_t  Buffer::size() const
 {
-    return (contentData.size());
+    return (content.size());
 }
 
 bool    Buffer::empty() const
 {
-    return (contentData.empty());
+    return (content.empty());
 }
 
 void    Buffer::clear()
 {
-    (contentData.clear());
+    content.clear();
 }
 
 void    Buffer::consume(size_t len)
 {
-    if (len >= contentData.size())
-        contentData.clear();
+    if (len >= content.size())
+        content.clear();
     else
-        contentData.erase(contentData.begin(), contentData.begin() + len);
+        content.erase(content.begin(), content.begin() + len);
 }
 
 std::string Buffer::toString() const
 {
-    return (std::string(contentData.begin(), contentData.end()));
+    return (std::string(content.begin(), content.end()));
 }
 
-bool    Buffer::contains(const std::string& delim) const
+bool    Buffer::contains(const std::string &delim) const
 {
-    if (contentData.size() < delim.size())
-        return (false);
-    return std::search(contentData.begin(), contentData.end(),
-        delim.begin(), delim.end()) != contentData.end();
+    return (find(delim) != std::string::npos);
+}
+
+size_t  Buffer::find(const std::string &delim) const
+{
+    std::string tmp(content.begin(), content.end());
+    return (tmp.find(delim));
+}
+
+std::string Buffer::consumeUntil(const std::string &delim)
+{
+    size_t pos = find(delim);
+
+    if (pos == std::string::npos)
+        return ("");
+    std::string res(content.begin(), content.begin() + pos);
+    consume(pos + delim.size());
+    return (res);
 }

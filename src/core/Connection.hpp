@@ -1,31 +1,36 @@
 #ifndef CONNECTION_HPP
-#define CONNECTION_HPP
+# define CONNECTION_HPP
 
-#include "../../includes/Headers.hpp"
-#include "Buffer.hpp"
+# include <string>
+# include <ctime>
+# include "Buffer.hpp"
 
 class   Connection
 {
     private:
         int     fd;
-        Buffer  input_buffer;
-        Buffer  output_buffer;
-        bool    close_after_send;  // <--- NOVO: Connection: close
+        Buffer  input;
+        Buffer  output;
+        bool    close_after_send;
+        bool    has_error;
+        time_t  last_activity;
 
     public:
         explicit    Connection(int fd);
         ~Connection();
 
-        int getFd() const;
-        Buffer  &getInputBuffer();
-        Buffer  &getOutputBuffer();
+        int     getFd() const;
+        Buffer      &getInputBuffer();
+        Buffer      &getOutputBuffer();
 
-        ssize_t read(char *buffer, size_t size);
-        ssize_t write(const char *data, size_t size);
-        void    close();
+        ssize_t     readFromFd();
+        ssize_t     writeToFd();
 
         void    setCloseAfterSend(bool value);
         bool    shouldCloseAfterSend() const;
+        bool    hasError() const;
+        void    closeConnection();
+        void    updateActivity();
 };
 
 #endif

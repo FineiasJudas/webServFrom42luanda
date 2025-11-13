@@ -1,24 +1,17 @@
-#include "../../includes/Headers.hpp"
-// src/core/Connection.cpp
 #include "Connection.hpp"
 #include <unistd.h>
 #include <fcntl.h>
-#include <iostream>
 
-Connection::Connection(int fd) : fd(fd), close_after_send(false)
+Connection::Connection(int fd)
+    : fd(fd), close_after_send(false), has_error(false)
 {
-    int flags;
-
-    flags = fcntl(fd, F_GETFL, 0);
-    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
-    {
-        std::cerr << "Erro ao configurar O_NONBLOCK\n";
-    }
+    fcntl(fd, F_SETFL, O_NONBLOCK);
+    updateActivity();
 }
 
 Connection::~Connection()
 {
-    close();
+    close(fd);
 }
 
 int Connection::getFd() const
@@ -26,14 +19,41 @@ int Connection::getFd() const
     return (fd);
 }
 
-Buffer &Connection::getInputBuffer()
+Buffer  &Connection::getInputBuffer()
 {
-    return (input_buffer);
+    return (input);
 }
 
 Buffer  &Connection::getOutputBuffer()
 {
-    return (output_buffer);
+    return (output);
+}
+
+ssize_t Connection::readFromFd()
+{
+    ssize_t     n;
+    char    buf[4096];
+
+    n = ::read(fd, buf, sizeof(buf));
+    if (n > 0)
+        input.append(buf, n);
+    else if (n == 0)
+        has_error = (true); // EOF
+    return (n);
+}
+
+ssize_t Connection::writeToFd()
+{
+    ssize_t n;
+
+    if (output.empty())
+        return (0);
+    n = ::write(fd, output.data(), output.size());
+    if (n > 0)
+        output.consume(n);
+    else if (n == 0)
+        has_error = (true);
+    return (n);
 }
 
 void    Connection::setCloseAfterSend(bool value)
@@ -46,21 +66,17 @@ bool    Connection::shouldCloseAfterSend() const
     return (close_after_send);
 }
 
-ssize_t Connection::read(char* buffer, size_t size)
+bool    Connection::hasError() const
 {
-    return (::read(fd, buffer, size));  // NÃO CHECA errno!
+    return (has_error);
 }
 
-ssize_t Connection::write(const char* data, size_t size)
+void    Connection::closeConnection()
 {
-    return (::write(fd, data, size));   // NÃO CHECA errno!
+    close(fd);
 }
 
-void    Connection::close()
+void    Connection::updateActivity()
 {
-    if (fd != -1)
-    {
-        ::close(fd);
-        fd = -1;
-    }
+    last_activity = std::time(NULL);
 }

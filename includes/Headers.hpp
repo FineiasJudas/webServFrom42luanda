@@ -8,7 +8,8 @@
 # include <cstdlib>
 # include <cstring>
 # include <unistd.h>
-#include <algorithm>
+# include <sstream>
+# include <algorithm>
 # include <errno.h>
 # include <sys/epoll.h>
 # include <iostream>
@@ -26,7 +27,6 @@
 # include "../src/utils/Logger.hpp"
 # include "../src/http/Request.hpp"
 # include "../src/http/Response.hpp"
-# include "../src/http/HttpParser.hpp"
 # include "../src/http/Router.hpp"
 # include "../src/cgi/CgiHandler.hpp"
 # include "../src/cgi/StaticFiles.hpp"

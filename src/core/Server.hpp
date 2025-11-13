@@ -2,28 +2,31 @@
 #define SERVER_HPP
 
 #include "../../includes/Headers.hpp"
-#include "Poller.hpp"
 #include "Connection.hpp"
-#include <sys/epoll.h>
-#include <vector>
+#include "../http/HttpParser.hpp"
+#include "../http/Router.hpp"
+#include "../config/Config.hpp"
+#include "Poller.hpp"
 
 class   Server
 {
     private:
-        int     server_fd;
         Poller  poller;
-        std::map<int, Connection *>  connections;
-        std::map<int, time_t>   last_activity;
-
-        void    handleNewConnection();
-        void    handleClientEvent(struct epoll_event &ev);
-        void    tryParseAndRespond(Connection *conn);
-        void    sendFromOutputBuffer(Connection *conn);
+        std::map<int, ServerConfig> listeningSockets;
+        std::map<int, Connection *> activeConnections;
 
     public:
-        Server(int port);
+        Server();
         ~Server();
-        void    start();
+
+        void    init(const Config &config);
+        void    run();
+
+    private:
+        void    handleNewConnection(int listen_fd);
+        void    handleRead(int client_fd);
+        void    handleWrite(int client_fd);
+        void    closeConnection(int client_fd);
 };
 
 #endif
