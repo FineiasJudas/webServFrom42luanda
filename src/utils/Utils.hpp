@@ -1,17 +1,18 @@
 #ifndef UTILS_HPP
-# define UTILS_HPP
+#define UTILS_HPP
 
-#include <sstream>
 #include <string>
+#include <sstream>
 
-namespace Utils
+class Utils
 {
-    template <typename T>
-    std::string toString(T value) {
-        std::ostringstream oss;
-        oss << value;
-        return oss.str();
-    }
-}
+    public:
+        static std::string toString(size_t n)
+        {
+            std::ostringstream ss;
+            ss << n;
+            return ss.str();
+        }
+};
 
 #endif

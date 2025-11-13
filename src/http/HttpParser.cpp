@@ -3,8 +3,7 @@
 #include <cstdlib>
 #include <algorithm>
 
-static std::string  trim(const std::string &s)
-{
+static std::string trim(const std::string &s) {
     size_t start = s.find_first_not_of(" \t\r\n");
     size_t end = s.find_last_not_of(" \t\r\n");
     if (start == std::string::npos || end == std::string::npos)
@@ -15,8 +14,7 @@ static std::string  trim(const std::string &s)
 // ------------------------------------------------------------
 // 1️⃣ Detecta se há um request HTTP completo no buffer
 // ------------------------------------------------------------
-bool HttpParser::hasCompleteRequest(const Buffer &buffer)
-{
+bool HttpParser::hasCompleteRequest(const Buffer &buffer) {
     std::string data = buffer.toString();
 
     // procura fim dos headers
@@ -43,8 +41,7 @@ bool HttpParser::hasCompleteRequest(const Buffer &buffer)
 // ------------------------------------------------------------
 // 2️⃣ Extrai e consome o request completo do buffer
 // ------------------------------------------------------------
-bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
-{
+bool HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size) {
     std::string data = buffer.toString();
     size_t header_end = data.find("\r\n\r\n");
     if (header_end == std::string::npos)
@@ -59,17 +56,15 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
         return false;
     {
         std::istringstream request_line(line);
-        request_line >> req.method >> req.uri >> req.http_version;
+        request_line >> req.method >> req.uri >> req.version;
     }
 
     // 2️⃣ Cabeçalhos
-    while (std::getline(header_stream, line))
-    {
+    while (std::getline(header_stream, line)) {
         if (line == "\r" || line.empty())
-            break ;
+            break;
         size_t colon = line.find(':');
-        if (colon != std::string::npos)
-        {
+        if (colon != std::string::npos) {
             std::string key = trim(line.substr(0, colon));
             std::string val = trim(line.substr(colon + 1));
             if (!key.empty())
@@ -90,6 +85,5 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
     // 4️⃣ Remove request completo do buffer
     buffer.consume(body_start + body_len);
 
-    return (true);
+    return true;
 }
-

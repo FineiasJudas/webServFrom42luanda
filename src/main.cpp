@@ -1,19 +1,20 @@
-#include "core/Server.hpp"
 #include "config/ConfigParser.hpp"
+#include "core/Server.hpp"
+#include <iostream>
 
-int main(int argc, char **argv) {
-    std::string conf = "conf/default.conf";
+int main(int argc, char **argv)
+{
+    std::string configFile = "conf/default.conf";
     if (argc > 1)
-        conf = argv[1];
+        configFile = argv[1];
 
-    try {
-        Config config = ConfigParser::parseFile(conf);
-        Server server;
-        server.init(config);
-        server.run();
-    } catch (const std::exception &e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+    Config conf = ConfigParser::parseFile(configFile);
+    if (conf.servers.empty()) {
+        std::cerr << "Nenhum servidor configurado!\n";
         return 1;
     }
+
+    Server server(conf.servers[0]);
+    server.run();
     return 0;
 }

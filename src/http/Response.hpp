@@ -5,26 +5,29 @@
 #include <map>
 #include "../utils/Utils.hpp"
 
-struct Response
-{
+struct Response {
     int status;
-    std::string reason;
     std::map<std::string, std::string> headers;
     std::string body;
 
-    Response();
+    std::string statusMessage(int code) const {
+        switch (code) {
+            case 200: return "OK";
+            case 204: return "No Content";
+            case 404: return "Not Found";
+            case 405: return "Method Not Allowed";
+            default:  return "Internal Server Error";
+        }
+    }
 
-    // Define cabeçalho simples
-    void setHeader(const std::string &key, const std::string &value);
-
-    // Define status e reason
-    void setStatus(int code, const std::string &msg);
-
-    // Gera o texto completo HTTP (para enviar ao socket)
-    std::string toString() const;
-
-    private:
-        static std::string reasonPhrase(int code);
+    std::string toString() const {
+        std::ostringstream ss;
+        ss << "HTTP/1.1 " << Utils::toString(status) << " " << statusMessage(status) << "\r\n";
+        for (std::map<std::string, std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
+            ss << it->first << ": " << it->second << "\r\n";
+        ss << "\r\n" << body;
+        return ss.str();
+    }
 };
 
 #endif

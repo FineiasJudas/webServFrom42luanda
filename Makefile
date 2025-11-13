@@ -1,34 +1,25 @@
-# **************************************************************************** #
-#                                   SETTINGS                                   #
-# **************************************************************************** #
-
 NAME        = webserv
 
 CXX         = c++
+
 CXXFLAGS    = -Wall -Wextra -Werror -std=c++98
+
 INCLUDES    = -I./includes
 
 RM          = rm -f
-
-# **************************************************************************** #
-#                                   SOURCES                                    #
-# **************************************************************************** #
 
 SRCS =  src/main.cpp \
         src/core/Buffer.cpp \
         src/core/Connection.cpp \
         src/core/PollerEpoll.cpp \
         src/core/Server.cpp \
+        src/core/ListenSocket.cpp \
         src/http/HttpParser.cpp \
         src/http/Router.cpp \
         src/http/Response.cpp \
-        src/config/ConfigParser.cpp \
+        src/config/ConfigParser.cpp 
 
 OBJS = $(SRCS:.cpp=.o)
-
-# **************************************************************************** #
-#                                   RULES                                      #
-# **************************************************************************** #
 
 all: $(NAME)
 
@@ -51,7 +42,4 @@ fclean: clean
 
 re: fclean all
 
-# **************************************************************************** #
-#                                   PHONY                                      #
-# **************************************************************************** #
 .PHONY: all clean fclean re

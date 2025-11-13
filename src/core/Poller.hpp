@@ -1,15 +1,9 @@
 #ifndef POLLER_HPP
 #define POLLER_HPP
 
-# include <vector>
-# include <sys/epoll.h>
-# include <stdexcept>
-# include <unistd.h>
+#include "../../includes/Headers.hpp"
 
-#define MAX_EVENTS 10
-
-class Poller
-{
+class Poller {
 private:
     int epoll_fd;
 

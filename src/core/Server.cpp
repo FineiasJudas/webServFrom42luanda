@@ -1,164 +1,148 @@
-#include "../http/HttpParser.hpp"
-#include "../http/Response.hpp"
-#include "../http/Router.hpp"
 #include "Server.hpp"
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <sstream>
 #include <unistd.h>
 #include <fcntl.h>
 #include <iostream>
-Server::Server() {}
+#include <cstring>
 
-Server::~Server() {
-    for (std::map<int, Connection*>::iterator it = activeConnections.begin();
-         it != activeConnections.end(); ++it) {
-        delete it->second;
-    }
-}
+/*static int parsePort(const std::string &listenStr)
+{
+    size_t colon = listenStr.find(':');
+    if (colon != std::string::npos)
+        return atoi(listenStr.substr(colon + 1).c_str());
+    return atoi(listenStr.c_str());
+}*/
 
-// -------------------------------------------------------------
-// 1️⃣ Inicializa os sockets (para cada server block do config)
-// -------------------------------------------------------------
-void Server::init(const Config &config) {
-    for (size_t i = 0; i < config.servers.size(); ++i) {
-        const ServerConfig &srv = config.servers[i];
-        for (size_t j = 0; j < srv.listen.size(); ++j) {
-            std::string addrPort = srv.listen[j];
-            int port = 8080;
+// ------------------------------------------------------------
+// Construtor: cria os sockets de escuta com base no config
+// ------------------------------------------------------------
+Server::Server(const ServerConfig &conf) : config(conf)
+{
+    for (size_t i = 0; i < conf.listen.size(); ++i)
+    {
+        std::string host = "0.0.0.0";
+        std::string entry = conf.listen[i];
+        int port = 8080;
 
-            // parsing de "ip:port" ou ":port"
-            size_t colon = addrPort.find(':');
-            if (colon != std::string::npos)
-                port = std::atoi(addrPort.substr(colon + 1).c_str());
-            else
-                port = std::atoi(addrPort.c_str());
-
-            int sock = socket(AF_INET, SOCK_STREAM, 0);
-            if (sock < 0)
-                throw std::runtime_error("Socket creation failed");
-
-            int opt = 1;
-            setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-
-            struct sockaddr_in addr;
-            addr.sin_family = AF_INET;
-            addr.sin_port = htons(port);
-            addr.sin_addr.s_addr = INADDR_ANY;
-
-            if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0)
-                throw std::runtime_error("Bind failed");
-            if (listen(sock, 10) < 0)
-                throw std::runtime_error("Listen failed");
-
-            // modo não-bloqueante
-            fcntl(sock, F_SETFL, O_NONBLOCK);
-
-            poller.addFd(sock, EPOLLIN);
-            listeningSockets[sock] = srv;
-            std::cout << "Listening on port " << port << std::endl;
+        size_t colon = entry.find(':');
+        if (colon != std::string::npos)
+        {
+            host = entry.substr(0, colon);
+            port = atoi(entry.substr(colon + 1).c_str());
         }
+        else
+            port = atoi(entry.c_str());
+
+        ListenSocket *sock = new ListenSocket(host, port);
+        listenSockets.push_back(sock);
+        poller.addFd(sock->getFd(), EPOLLIN);
     }
+
+    std::cout << "Server inicializado com " << listenSockets.size()
+              << " socket(s) de escuta.\n";
 }
 
-// -------------------------------------------------------------
-// 2️⃣ Loop principal (epoll)
-// -------------------------------------------------------------
-void Server::run() {
-    std::cout << "Server running..." << std::endl;
+Server::~Server()
+{
+    for (size_t i = 0; i < listenSockets.size(); ++i)
+        delete listenSockets[i];
+    for (std::map<int, Connection*>::iterator it = connections.begin(); it != connections.end(); ++it)
+        delete it->second;
+}
 
-    while (true) {
+// ------------------------------------------------------------
+// Loop principal: aceita e trata conexões
+// ------------------------------------------------------------
+void Server::run()
+{
+    while (true)
+    {
         std::vector<struct epoll_event> events = poller.wait(1000);
-        for (size_t i = 0; i < events.size(); ++i) {
+        for (size_t i = 0; i < events.size(); ++i)
+        {
             int fd = events[i].data.fd;
+            uint32_t ev = events[i].events;
 
-            if (listeningSockets.count(fd))
-                handleNewConnection(fd);
-            else if (events[i].events & EPOLLIN)
+            // Verifica se é socket de escuta
+            bool isListening = false;
+            for (size_t j = 0; j < listenSockets.size(); ++j)
+                if (fd == listenSockets[j]->getFd())
+                    isListening = true;
+
+            if (isListening)
+                handleAccept(fd);
+            else if (ev & EPOLLIN)
                 handleRead(fd);
-            else if (events[i].events & EPOLLOUT)
+            else if (ev & EPOLLOUT)
                 handleWrite(fd);
         }
     }
 }
 
-// -------------------------------------------------------------
-// 3️⃣ Aceita novas conexões
-// -------------------------------------------------------------
-void Server::handleNewConnection(int listen_fd) {
-    struct sockaddr_in client_addr;
-    socklen_t addr_len = sizeof(client_addr);
-    int client_fd = accept(listen_fd, (struct sockaddr*)&client_addr, &addr_len);
+// ------------------------------------------------------------
+// Accept
+// ------------------------------------------------------------
+void Server::handleAccept(int listen_fd)
+{
+    struct sockaddr_in addr;
+    socklen_t len = sizeof(addr);
+    int client_fd = accept(listen_fd, (struct sockaddr *)&addr, &len);
     if (client_fd < 0)
         return;
 
     fcntl(client_fd, F_SETFL, O_NONBLOCK);
     poller.addFd(client_fd, EPOLLIN);
-    activeConnections[client_fd] = new Connection(client_fd);
-    std::cout << "New connection on fd " << client_fd << std::endl;
+    connections[client_fd] = new Connection(client_fd);
+    std::cout << "🧩 Nova conexão: FD " << client_fd << std::endl;
 }
 
-// -------------------------------------------------------------
-// 4️⃣ Lê dados de um cliente e processa o request
-// -------------------------------------------------------------
-void Server::handleRead(int client_fd)
+// ------------------------------------------------------------
+// Read (recebe e processa request HTTP)
+// ------------------------------------------------------------
+void Server::handleRead(int conn_fd)
 {
-    Connection *conn = activeConnections[client_fd];
-    char tmp[4096];
-    ssize_t bytes = recv(client_fd, tmp, sizeof(tmp), 0);
-
-    if (bytes <= 0) {
-        closeConnection(client_fd);
+    char buffer[4096];
+    ssize_t bytes = connections[conn_fd]->read(buffer, sizeof(buffer));
+    if (bytes <= 0)
+    {
+        poller.removeFd(conn_fd);
+        close(conn_fd);
+        delete connections[conn_fd];
+        connections.erase(conn_fd);
         return;
     }
 
-    conn->getInputBuffer().append(tmp, bytes);
+    Request req;
+    Buffer &input = connections[conn_fd]->getInputBuffer();
+    input.append(buffer, bytes);
 
-    // Enquanto houver requisições completas no buffer
-    while (HttpParser::hasCompleteRequest(conn->getInputBuffer())) {
-        Request req;
-        ServerConfig srv = listeningSockets.begin()->second;
-        if (!HttpParser::parseRequest(conn->getInputBuffer(), req, srv.max_body_size))
-            break;
-
-        Response res = Router::route(req, srv);
-        std::string response_str = res.toString();
-        conn->getOutputBuffer().append(response_str.c_str(), response_str.size());
-        poller.modifyFd(client_fd, EPOLLOUT);
+    if (HttpParser::hasCompleteRequest(input))
+    {
+        if (HttpParser::parseRequest(input, req, config.max_body_size))
+        {
+            Response res = Router::route(req, config);
+            std::string resStr = res.toString();
+            connections[conn_fd]->getOutputBuffer().append(resStr);
+            poller.modifyFd(conn_fd, EPOLLOUT);
+        }
     }
 }
 
-// -------------------------------------------------------------
-// 5️⃣ Envia resposta HTTP ao cliente
-// -------------------------------------------------------------
-void    Server::handleWrite(int client_fd)
+// ------------------------------------------------------------
+// Write (envia resposta HTTP)
+// ------------------------------------------------------------
+void Server::handleWrite(int conn_fd)
 {
-    ssize_t sent;
-
-    Connection *conn = activeConnections[client_fd];
-    Buffer &out = conn->getOutputBuffer();
-
-    if (out.empty())
-    {
-        closeConnection(client_fd);
-        return ;
-    }
-
-    sent = send(client_fd, out.data(), out.size(), 0);
+    Buffer &out = connections[conn_fd]->getOutputBuffer();
+    ssize_t sent = connections[conn_fd]->write(out.data(), out.size());
     if (sent > 0)
         out.consume(sent);
 
     if (out.empty())
-        closeConnection(client_fd);
-}
-
-// -------------------------------------------------------------
-// 6️⃣ Fecha conexão e limpa
-// -------------------------------------------------------------
-void    Server::closeConnection(int client_fd)
-{
-    poller.removeFd(client_fd);
-    close(client_fd);
-    delete activeConnections[client_fd];
-    activeConnections.erase(client_fd);
-    std::cout << "Conexão de fd=" << client_fd << " fechada" << std::endl;
+    {
+        poller.removeFd(conn_fd);
+        close(conn_fd);
+        delete connections[conn_fd];
+        connections.erase(conn_fd);
+    }
 }

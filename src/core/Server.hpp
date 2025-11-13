@@ -2,31 +2,31 @@
 #define SERVER_HPP
 
 #include "../../includes/Headers.hpp"
-#include "Connection.hpp"
-#include "../http/HttpParser.hpp"
-#include "../http/Router.hpp"
 #include "../config/Config.hpp"
 #include "Poller.hpp"
+#include "Connection.hpp"
+#include "ListenSocket.hpp"
+#include "../http/HttpParser.hpp"
+#include "../http/Router.hpp"
 
-class   Server
+class Server
 {
-    private:
-        Poller  poller;
-        std::map<int, ServerConfig> listeningSockets;
-        std::map<int, Connection *> activeConnections;
+private:
+    std::vector<ListenSocket*> listenSockets;
+    Poller poller;
+    ServerConfig config;
+    std::map<int, Connection*> connections;
 
-    public:
-        Server();
-        ~Server();
+public:
+    explicit Server(const ServerConfig &conf);
+    ~Server();
 
-        void    init(const Config &config);
-        void    run();
+    void run();
 
-    private:
-        void    handleNewConnection(int listen_fd);
-        void    handleRead(int client_fd);
-        void    handleWrite(int client_fd);
-        void    closeConnection(int client_fd);
+private:
+    void handleAccept(int listen_fd);
+    void handleRead(int conn_fd);
+    void handleWrite(int conn_fd);
 };
 
 #endif
