@@ -1,32 +1,23 @@
-#include "../../includes/Headers.hpp"
-// src/core/Connection.cpp
 #include "Connection.hpp"
 #include <unistd.h>
-#include <fcntl.h>
-#include <iostream>
 
-Connection::Connection(int fd) : fd(fd), close_after_send(false)
+Connection::Connection(int fd)
+    : fd(fd), close_after_send(false)
 {
-    int flags;
-
-    flags = fcntl(fd, F_GETFL, 0);
-    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
-    {
-        std::cerr << "Erro ao configurar O_NONBLOCK\n";
-    }
+    updateActivity();
 }
 
 Connection::~Connection()
 {
-    close();
+    ::close(fd);
 }
 
-int Connection::getFd() const
+int     Connection::getFd() const
 {
     return (fd);
 }
 
-Buffer &Connection::getInputBuffer()
+Buffer  &Connection::getInputBuffer()
 {
     return (input_buffer);
 }
@@ -36,31 +27,38 @@ Buffer  &Connection::getOutputBuffer()
     return (output_buffer);
 }
 
-void    Connection::setCloseAfterSend(bool value)
+ssize_t Connection::readFromFd(char *buf, size_t size)
 {
-    close_after_send = value;
+    ssize_t     bytes;
+
+    bytes = ::read(fd, buf, size);
+    if (bytes > 0)
+    {
+        updateActivity();
+        input_buffer.append(buf, bytes);
+    }
+    return (bytes);
 }
 
-bool    Connection::shouldCloseAfterSend() const
+ssize_t Connection::writeToFd(const char *data, size_t size)
+{
+    ssize_t bytes = ::write(fd, data, size);
+    if (bytes > 0)
+        updateActivity();
+    return (bytes);
+}
+
+void    Connection::setCloseAfterSend(bool v)
+{
+    close_after_send = v;
+}
+
+bool Connection::shouldCloseAfterSend() const
 {
     return (close_after_send);
 }
 
-ssize_t Connection::read(char* buffer, size_t size)
+void    Connection::updateActivity()
 {
-    return (::read(fd, buffer, size));  // NÃO CHECA errno!
-}
-
-ssize_t Connection::write(const char* data, size_t size)
-{
-    return (::write(fd, data, size));   // NÃO CHECA errno!
-}
-
-void    Connection::close()
-{
-    if (fd != -1)
-    {
-        ::close(fd);
-        fd = -1;
-    }
+    last_activity_time = time(NULL);
 }

@@ -2,28 +2,38 @@
 #define SERVER_HPP
 
 #include "../../includes/Headers.hpp"
-#include "Poller.hpp"
+#include "ListenSocket.hpp"
 #include "Connection.hpp"
-#include <sys/epoll.h>
-#include <vector>
+#include "Poller.hpp"
+#include "../config/Config.hpp"
+#include <map>
 
 class   Server
 {
     private:
-        int     server_fd;
-        Poller  poller;
-        std::map<int, Connection *>  connections;
-        std::map<int, time_t>   last_activity;
+        ServerConfig                config;
+        Poller                      poller;
 
-        void    handleNewConnection();
-        void    handleClientEvent(struct epoll_event &ev);
-        void    tryParseAndRespond(Connection *conn);
-        void    sendFromOutputBuffer(Connection *conn);
+        std::vector<ListenSocket *>  listenSockets;
+        std::map<int, Connection *>  connections;
+
+        int     read_timeout;      // <--- NOVO
+        int     keepalive_timeout; // <--- NOVO
+
+        static const int            WRITE_TIMEOUT_SECONDS = 30;
+
+        void    checkWriteTimeouts();
+        void    handleAccept(int listen_fd);
+        void    handleRead(int fd);
+        void    handleWrite(int fd);
+        void    closeConnection(int conn_fd);
 
     public:
-        Server(int port);
+        Server(const ServerConfig &conf);
         ~Server();
-        void    start();
+
+        void    run();
+        
 };
 
 #endif

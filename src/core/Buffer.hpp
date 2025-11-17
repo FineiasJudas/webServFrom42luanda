@@ -6,7 +6,7 @@
 class   Buffer
 {
     private:
-        std::vector<char>   contentData;
+        std::vector<char> contentData;
 
     public:
         void    append(const char *src, size_t len);
@@ -18,7 +18,9 @@ class   Buffer
         void    clear();
         void    consume(size_t len);
         std::string toString() const;
-        bool    contains(const std::string& delim) const;
+        size_t  find(const std::string &delim) const;
+
 };
 
 #endif
+
