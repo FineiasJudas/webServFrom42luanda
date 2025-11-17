@@ -2,31 +2,38 @@
 #define SERVER_HPP
 
 #include "../../includes/Headers.hpp"
-#include "../config/Config.hpp"
-#include "Poller.hpp"
-#include "Connection.hpp"
 #include "ListenSocket.hpp"
-#include "../http/HttpParser.hpp"
-#include "../http/Router.hpp"
+#include "Connection.hpp"
+#include "Poller.hpp"
+#include "../config/Config.hpp"
+#include <map>
 
-class Server
+class   Server
 {
-private:
-    std::vector<ListenSocket*> listenSockets;
-    Poller poller;
-    ServerConfig config;
-    std::map<int, Connection*> connections;
+    private:
+        ServerConfig                config;
+        Poller                      poller;
 
-public:
-    explicit Server(const ServerConfig &conf);
-    ~Server();
+        std::vector<ListenSocket *>  listenSockets;
+        std::map<int, Connection *>  connections;
 
-    void run();
+        int     read_timeout;      // <--- NOVO
+        int     keepalive_timeout; // <--- NOVO
 
-private:
-    void handleAccept(int listen_fd);
-    void handleRead(int conn_fd);
-    void handleWrite(int conn_fd);
+        static const int            WRITE_TIMEOUT_SECONDS = 30;
+
+        void    checkWriteTimeouts();
+        void    handleAccept(int listen_fd);
+        void    handleRead(int fd);
+        void    handleWrite(int fd);
+        void    closeConnection(int conn_fd);
+
+    public:
+        Server(const ServerConfig &conf);
+        ~Server();
+
+        void    run();
+        
 };
 
 #endif

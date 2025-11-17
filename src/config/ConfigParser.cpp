@@ -1,119 +1,160 @@
 #include "ConfigParser.hpp"
 
-// Lê a próxima palavra ignorando espaços e quebras de linha
-std::string ConfigParser::nextToken(std::istringstream &iss)
+static  std::string stripComments(const std::string &line)
 {
-    std::string token;
-    iss >> token;
-    return token;
+    size_t  pos = line.find('#');
+
+    if (pos == std::string::npos)
+        return (line);
+    return (line.substr(0, pos));
 }
 
-// ------------------------------------------------------------
-// Lê um bloco de "location { ... }"
-// ------------------------------------------------------------
-void ConfigParser::parseLocation(std::ifstream &file, LocationConfig &loc)
+std::string ConfigParser::trim(const std::string &s)
+{
+    size_t a = s.find_first_not_of(" \t\r\n");
+
+    if (a == std::string::npos)
+        return std::string();
+    size_t b = s.find_last_not_of(" \t\r\n");
+
+    return s.substr(a, b - a + 1);
+}
+
+void    ConfigParser::parseLocationBlock(std::ifstream &file, LocationConfig &loc)
 {
     std::string line;
+
     while (std::getline(file, line))
     {
-        if (line.find('}') != std::string::npos)
-            break;
-        std::istringstream iss(line);
-        std::string key = nextToken(iss);
+        line = stripComments(line);
+        line = trim(line);
 
+        if (line.empty())
+            continue ;
+        if (line == "}")
+            break ;
+
+        std::istringstream iss(line);
+        std::string key;
+        iss >> key;
         if (key == "root")
-            iss >> loc.root;
-        else if (key == "methods")
-        {
-            std::string method;
-            while (iss >> method)
-                loc.methods.push_back(method);
-        }
-        else if (key == "directory_listing")
         {
             std::string value;
             iss >> value;
-            loc.directory_listing = (value == "on");
+            loc.root = value;
+        }
+        else if (key == "methods")
+        {
+            std::string m;
+            while (iss >> m) loc.methods.push_back(m);
+        }
+        else if (key == "directory_listing")
+        {
+            std::string v;
+            iss >> v;
+            loc.directory_listing = (v == "on");
         }
         else if (key == "upload_dir")
-            iss >> loc.upload_dir;
+        {
+            std::string v;
+            iss >> v;
+            loc.upload_dir = v;
+        }
         else if (key == "cgi_extension")
-            iss >> loc.cgi_extension;
+        {
+            std::string v;
+            iss >> v;
+            loc.cgi_extension = v;
+        }
     }
 }
 
-// ------------------------------------------------------------
-// Lê um bloco "server { ... }"
-// ------------------------------------------------------------
-void ConfigParser::parseServer(std::ifstream &file, ServerConfig &server)
+void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server)
 {
     std::string line;
+
     while (std::getline(file, line))
     {
-        if (line.find('}') != std::string::npos)
-            break;
+        line = stripComments(line);
+        line = trim(line);
+
+        if (line.empty())
+            continue ;
+        if (line == "}")
+            break ;
 
         std::istringstream iss(line);
-        std::string key = nextToken(iss);
-
+        std::string key;
+        iss >> key;
         if (key == "listen")
         {
-            std::string value;
-            while (iss >> value)
-                server.listen.push_back(value);
+            std::string v;
+            while (iss >> v) server.listen.push_back(v);
         }
         else if (key == "root")
         {
+            std::string v; iss >> v;
             LocationConfig loc;
             loc.path = "/";
-            iss >> loc.root;
+            loc.root = v;
             server.locations.push_back(loc);
         }
         else if (key == "max_body_size")
         {
-            iss >> server.max_body_size;
+            size_t v;
+            iss >> v;
+            server.max_body_size = v;
         }
         else if (key == "error_page")
         {
-            int code;
-            std::string path;
-            iss >> code >> path;
+            int code; std::string path; iss >> code >> path;
             server.error_pages[code] = path;
         }
         else if (key == "location")
         {
             LocationConfig loc;
             iss >> loc.path;
-            parseLocation(file, loc);
+            parseLocationBlock(file, loc);
             server.locations.push_back(loc);
         }
     }
 }
 
-// ------------------------------------------------------------
-// Função principal: lê todo o ficheiro de configuração
-// ------------------------------------------------------------
-Config ConfigParser::parseFile(const std::string &filename)
+Config  ConfigParser::parseFile(const std::string &filename)
 {
-    Config conf;
+    Config  conf;
     std::ifstream file(filename.c_str());
+
     if (!file.is_open())
     {
-        std::cerr << "Erro: não foi possível abrir " << filename << std::endl;
-        return conf;
+        std::cerr << "Could not open config: " << filename << std::endl;
+        return (conf);
     }
 
     std::string line;
     while (std::getline(file, line))
     {
+        line = stripComments(line);
+        line = trim(line);
+        if (line.empty())
+            continue ;
         if (line.find("server") != std::string::npos)
         {
+            // consume the opening '{' line if it's there
+            if (line.find('{') == std::string::npos)
+            {
+                while (std::getline(file, line))
+                {
+                    line = trim(line);
+                    if (line.find('{') != std::string::npos)
+                        break ;
+                }
+            }
             ServerConfig server;
-            parseServer(file, server);
+            parseServerBlock(file, server);
             conf.servers.push_back(server);
         }
     }
-
     file.close();
-    return conf;
+    return (conf);
 }

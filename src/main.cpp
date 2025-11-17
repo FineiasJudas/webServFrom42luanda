@@ -4,17 +4,30 @@
 
 int main(int argc, char **argv)
 {
-    std::string configFile = "conf/default.conf";
-    if (argc > 1)
-        configFile = argv[1];
-
-    Config conf = ConfigParser::parseFile(configFile);
-    if (conf.servers.empty()) {
-        std::cerr << "Nenhum servidor configurado!\n";
-        return 1;
+    if (argc != 2)
+    {
+        std::cerr << "Use: ./webserv <file.config>\n";  
+        return (1);
     }
 
-    Server server(conf.servers[0]);
-    server.run();
-    return 0;
+    std::string confFile = argv[1];
+
+    try
+    {
+        Config  conf = ConfigParser::parseFile(confFile);
+        if (conf.servers.empty()) 
+        {
+            std::cerr << "No server blocks found in config\n";
+            return (1);
+        }
+
+        // create a Server for each ServerConfig? here we start one Server with first block
+        Server server(conf.servers[0]);
+        server.run();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+    }
+    return (0);
 }

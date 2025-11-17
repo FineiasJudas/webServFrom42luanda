@@ -1,18 +1,18 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-#include <string>
-#include <sstream>
+#include "../../includes/Headers.hpp"
 
-class Utils
+class   Utils
 {
     public:
-        static std::string toString(size_t n)
+        static std::string  toString(size_t n)
         {
             std::ostringstream ss;
             ss << n;
-            return ss.str();
+            return (ss.str());
         }
 };
 
 #endif
+

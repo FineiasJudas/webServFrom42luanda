@@ -1,29 +1,21 @@
 #include "Server.hpp"
-#include <sstream>
-#include <unistd.h>
-#include <fcntl.h>
+#include "../http/HttpParser.hpp"
+#include "../http/Request.hpp"
+#include "../http/Response.hpp"
+#include "../http/Router.hpp"
+#include "../utils/Utils.hpp"
 #include <iostream>
 #include <cstring>
 
-/*static int parsePort(const std::string &listenStr)
+Server::Server(const ServerConfig &conf)
+    : config(conf), read_timeout(15), keepalive_timeout(30)
 {
-    size_t colon = listenStr.find(':');
-    if (colon != std::string::npos)
-        return atoi(listenStr.substr(colon + 1).c_str());
-    return atoi(listenStr.c_str());
-}*/
-
-// ------------------------------------------------------------
-// Construtor: cria os sockets de escuta com base no config
-// ------------------------------------------------------------
-Server::Server(const ServerConfig &conf) : config(conf)
-{
+    // Criar sockets e colocar em modo Listen
     for (size_t i = 0; i < conf.listen.size(); ++i)
     {
-        std::string host = "0.0.0.0";
         std::string entry = conf.listen[i];
-        int port = 8080;
-
+        std::string host = "";
+        int port = 0;
         size_t colon = entry.find(':');
         if (colon != std::string::npos)
         {
@@ -32,29 +24,28 @@ Server::Server(const ServerConfig &conf) : config(conf)
         }
         else
             port = atoi(entry.c_str());
+        if (host == "")
+            host = "0.0.0.0";
 
-        ListenSocket *sock = new ListenSocket(host, port);
-        listenSockets.push_back(sock);
-        poller.addFd(sock->getFd(), EPOLLIN);
+        ListenSocket *ls = new ListenSocket(host, port);
+        listenSockets.push_back(ls);
+        poller.addFd(ls->getFd(),  EPOLLIN | EPOLLET);
     }
-
-    std::cout << "Server inicializado com " << listenSockets.size()
-              << " socket(s) de escuta.\n";
+    std::cout << "Servidor com " << listenSockets.size() << " sockets ouvindo\n";
 }
 
 Server::~Server()
 {
     for (size_t i = 0; i < listenSockets.size(); ++i)
-        delete listenSockets[i];
-    for (std::map<int, Connection*>::iterator it = connections.begin(); it != connections.end(); ++it)
-        delete it->second;
+        delete (listenSockets[i]);
+    for (std::map<int, Connection *>::iterator it = connections.begin();
+         it != connections.end(); ++it)
+        delete (it->second);
 }
 
-// ------------------------------------------------------------
-// Loop principal: aceita e trata conexões
-// ------------------------------------------------------------
-void Server::run()
+void    Server::run()
 {
+    std::cout << "Servidor rodando...\n";
     while (true)
     {
         std::vector<struct epoll_event> events = poller.wait(1000);
@@ -63,86 +54,191 @@ void Server::run()
             int fd = events[i].data.fd;
             uint32_t ev = events[i].events;
 
-            // Verifica se é socket de escuta
-            bool isListening = false;
+            bool isListen = false;
             for (size_t j = 0; j < listenSockets.size(); ++j)
                 if (fd == listenSockets[j]->getFd())
-                    isListening = true;
+                {
+                    isListen = true;
+                    break ;
+                }
 
-            if (isListening)
+            if (isListen)
                 handleAccept(fd);
-            else if (ev & EPOLLIN)
-                handleRead(fd);
-            else if (ev & EPOLLOUT)
-                handleWrite(fd);
+            else 
+            {
+                if (ev & EPOLLIN)
+                    handleRead(fd);
+                else if (ev & EPOLLOUT)
+                    handleWrite(fd);
+                else if (ev & (EPOLLHUP | EPOLLERR))
+                    closeConnection(fd);
+            }
         }
+        checkWriteTimeouts();
     }
 }
 
-// ------------------------------------------------------------
-// Accept
-// ------------------------------------------------------------
-void Server::handleAccept(int listen_fd)
+void    Server::handleAccept(int listen_fd)
 {
-    struct sockaddr_in addr;
-    socklen_t len = sizeof(addr);
-    int client_fd = accept(listen_fd, (struct sockaddr *)&addr, &len);
+    int     flags;
+    int     client_fd;
+    socklen_t   len;
+    struct sockaddr_in  cli;
+
+    len = sizeof(cli);
+    client_fd = accept(listen_fd, (struct sockaddr*)&cli, &len);
     if (client_fd < 0)
-        return;
+        return ;
 
-    fcntl(client_fd, F_SETFL, O_NONBLOCK);
-    poller.addFd(client_fd, EPOLLIN);
+    // Setar a conexão como não bloqueante
+    flags = fcntl(client_fd, F_GETFL, 0);
+    fcntl(client_fd, F_SETFL, flags | O_NONBLOCK);
+
+    // Adicionar a conexão aos fds monitorados pelo Poller
+    poller.addFd(client_fd, EPOLLIN | EPOLLET);
     connections[client_fd] = new Connection(client_fd);
-    std::cout << "🧩 Nova conexão: FD " << client_fd << std::endl;
+    std::cout << "\n🧩 Nova conexão: FD " << client_fd << std::endl;
 }
 
-// ------------------------------------------------------------
-// Read (recebe e processa request HTTP)
-// ------------------------------------------------------------
-void Server::handleRead(int conn_fd)
+void    Server::handleRead(int conn_fd)
 {
-    char buffer[4096];
-    ssize_t bytes = connections[conn_fd]->read(buffer, sizeof(buffer));
-    if (bytes <= 0)
+    ssize_t     n;
+
+    Connection *conn = connections[conn_fd];
+    if (!conn)
     {
-        poller.removeFd(conn_fd);
-        close(conn_fd);
-        delete connections[conn_fd];
-        connections.erase(conn_fd);
-        return;
+        closeConnection(conn_fd);
+        return ;
     }
 
-    Request req;
-    Buffer &input = connections[conn_fd]->getInputBuffer();
-    input.append(buffer, bytes);
+    char buf[8192];
 
-    if (HttpParser::hasCompleteRequest(input))
+    // Ler o conteúdo do enviado pelo cliente
+    n = conn->readFromFd(buf, sizeof(buf));
+    if (n <= 0)
     {
-        if (HttpParser::parseRequest(input, req, config.max_body_size))
-        {
-            Response res = Router::route(req, config);
-            std::string resStr = res.toString();
-            connections[conn_fd]->getOutputBuffer().append(resStr);
-            poller.modifyFd(conn_fd, EPOLLOUT);
-        }
+        closeConnection(conn_fd);
+        return ;
+    }
+
+    // Tentar fazer o parse da requisição (possivelmente múltiplas)
+    while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
+    {
+        Request     req;
+
+        if (!HttpParser::parseRequest(conn->getInputBuffer(), req, config.max_body_size))
+            break ;
+        
+        // Log da requisição
+        std::cout << "\n======== Request ========" << std::endl;
+        std::cout << "Method: " << req.method << std::endl;
+        std::cout << "Version: " << req.version << std::endl;
+        std::cout << "Body: " << req.body << std::endl;
+        std::cout << "Connection: " << req.headers["Connection"] << std::endl;
+
+        // Checar o tipo de conexão (Close/Keep-alive)
+        if (req.headers["Connection"] == "close")
+            conn->setCloseAfterSend(true);
+        else if (req.version == "HTTP/1.0" &&
+                req.headers["Connection"] != "keep-alive")
+            conn->setCloseAfterSend(true);
+        else
+            conn->setCloseAfterSend(false);
+
+        // Criar resposta
+        Response res = Router::route(req, config);
+
+         // Log da resposta
+        std::cout << "\n======== Response ========" << std::endl;
+        std::cout << "Status: " << res.status << std::endl;
+        std::cout << "Content-Type: " << res.headers["Content-Type"] << std::endl;
+        std::cout << "Connection: " << res.headers["Connection"] << std::endl;
+        std::cout << "Content-Length: " << res.headers["Content-Length"] << std::endl;
+
+        // Converter a resposta em string e adicionar no buffer de saída
+        std::string out = res.toString();
+        conn->getOutputBuffer().append(out);
+
+        // Mudar o fd da conexão para escrita
+        poller.modifyFd(conn_fd, EPOLLOUT | EPOLLET);
     }
 }
 
-// ------------------------------------------------------------
-// Write (envia resposta HTTP)
-// ------------------------------------------------------------
-void Server::handleWrite(int conn_fd)
+void    Server::handleWrite(int conn_fd)
 {
-    Buffer &out = connections[conn_fd]->getOutputBuffer();
-    ssize_t sent = connections[conn_fd]->write(out.data(), out.size());
+    Connection  *conn = connections[conn_fd];
+    if (!conn)
+    {
+        closeConnection(conn_fd);
+        return ;
+    }
+
+    // Pegar a resposta do buffer de saída, 
+    // e enviar o conteúdo de volta ao cliente
+    Buffer &out = conn->getOutputBuffer();
+    if (out.empty())
+    { 
+        closeConnection(conn_fd); 
+        return ;
+    }
+    
+    const std::vector<char> &data = out.getData();
+    ssize_t sent = ::write(conn_fd, &data[0], data.size());
     if (sent > 0)
         out.consume(sent);
 
-    if (out.empty())
+    if (conn->shouldCloseAfterSend())
+        closeConnection(conn_fd);
+    else
+        poller.modifyFd(conn_fd, EPOLLOUT); // esperar próxima request (keep-alive)*/
+}
+
+void    Server::closeConnection(int conn_fd)
+{
+    poller.removeFd(conn_fd);
+    if (connections.count(conn_fd))
     {
-        poller.removeFd(conn_fd);
-        close(conn_fd);
-        delete connections[conn_fd];
+        delete  connections[conn_fd];
         connections.erase(conn_fd);
     }
+    close(conn_fd);
+    std::cout << "\n🔒 Conexão fechada FD " << conn_fd << std::endl;
 }
+
+void    Server::checkWriteTimeouts()
+{
+    long    now = time(NULL);
+
+    for (std::map<int, Connection*>::iterator it = connections.begin();
+         it != connections.end(); )
+    {
+        Connection *c = it->second;
+
+        long idle = now - c->last_activity_time;
+
+        if (!c->getInputBuffer().empty() && idle > read_timeout)
+        {
+            // READ TIMEOUT
+            std::cout << "[TIMEOUT] Read Timeout FD " << c->getFd() << std::endl;
+            poller.removeFd(c->getFd());
+            ::close(c->getFd());
+            delete c;
+            connections.erase(it++);
+            continue;
+        }
+
+        if (c->getInputBuffer().empty() && idle > keepalive_timeout)
+        {
+            // KEEP-ALIVE TIMEOUT
+            std::cout << "[TIMEOUT] Keep-alive Timeout FD " << c->getFd() << std::endl;
+            poller.removeFd(c->getFd());
+            ::close(c->getFd());
+            delete c;
+            connections.erase(it++);
+            continue;
+        }
+
+        ++it;
+    }
+}
+
