@@ -177,7 +177,7 @@ void    Server::handleWrite(int conn_fd)
     // e enviar o conteúdo de volta ao cliente
     Buffer &out = conn->getOutputBuffer();
     if (out.empty())
-    { 
+    {
         closeConnection(conn_fd); 
         return ;
     }
@@ -219,7 +219,7 @@ void    Server::checkWriteTimeouts()
         if (!c->getInputBuffer().empty() && idle > read_timeout)
         {
             // READ TIMEOUT
-            std::cout << "[TIMEOUT] Read Timeout FD " << c->getFd() << std::endl;
+            std::cout << "\n[TIMEOUT] Read Timeout FD " << c->getFd() << std::endl;
             poller.removeFd(c->getFd());
             ::close(c->getFd());
             delete c;
@@ -230,7 +230,7 @@ void    Server::checkWriteTimeouts()
         if (c->getInputBuffer().empty() && idle > keepalive_timeout)
         {
             // KEEP-ALIVE TIMEOUT
-            std::cout << "[TIMEOUT] Keep-alive Timeout FD " << c->getFd() << std::endl;
+            std::cout << "\n[TIMEOUT] Keep-alive Timeout FD " << c->getFd() << std::endl;
             poller.removeFd(c->getFd());
             ::close(c->getFd());
             delete c;
