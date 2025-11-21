@@ -102,67 +102,91 @@ void    Server::handleAccept(int listen_fd)
 
 void    Server::handleRead(int conn_fd)
 {
-    ssize_t     n;
-
-    Connection *conn = connections[conn_fd];
+    Connection  *conn = connections[conn_fd];
     if (!conn)
     {
         closeConnection(conn_fd);
         return ;
     }
 
-    char buf[8192];
+    char    buf[8192];
+    ssize_t     n;
 
-    // Ler o conteúdo do enviado pelo cliente
-    n = conn->readFromFd(buf, sizeof(buf));
-    if (n <= 0)
+    // 🔁 1) Ler até EAGAIN (non-blocking)
+    while (true)
     {
-        closeConnection(conn_fd);
-        return ;
+        n = conn->readFromFd(buf, sizeof(buf));
+        if (n > 0)
+            continue ;
+
+        // sem mais dados por agora → normal!
+        if (n == -1)
+            break ;
+
+        if (n <= 0)
+        {
+            closeConnection(conn_fd);
+            return ;
+        }
     }
 
-    // Tentar fazer o parse da requisição (possivelmente múltiplas)
+    // 🧪 DEBUG
+    std::cout << "\n📨 Dados recebidos na conexão FD "
+              << conn_fd << ": "
+              << conn->getInputBuffer().size() << " bytes acumulados\n";
+
+    // 🔍 2) PROCESSAR requests COMPLETOS
+    int iteration = 0;
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
         Request     req;
+        std::cout << "\n🔍 Fazendo parse da requisição FD " << conn_fd << std::endl;
 
         if (!HttpParser::parseRequest(conn->getInputBuffer(), req, config.max_body_size))
-            break ;
-        
-        // Log da requisição
-        std::cout << "\n======== Request ========" << std::endl;
-        std::cout << "Method: " << req.method << std::endl;
-        std::cout << "Version: " << req.version << std::endl;
-        std::cout << "Body: " << req.body << std::endl;
-        std::cout << "Connection: " << req.headers["Connection"] << std::endl;
+        {
+            Response    res;
+            res.status = 400;
+            res.body = "<h1>400 Bad Request</h1>";
+            res.headers["Content-Length"] = Utils::toString(res.body.size());
+            res.headers["Content-Type"] = "text/html";
 
-        // Checar o tipo de conexão (Close/Keep-alive)
+            conn->getOutputBuffer().append(res.toString());
+            poller.modifyFd(conn_fd, EPOLLOUT | EPOLLET);
+            return ;
+        }
+
+        // 🔌 Keep-alive / Close
         if (req.headers["Connection"] == "close")
             conn->setCloseAfterSend(true);
         else if (req.version == "HTTP/1.0" &&
-                req.headers["Connection"] != "keep-alive")
+                 req.headers["Connection"] != "keep-alive")
             conn->setCloseAfterSend(true);
         else
             conn->setCloseAfterSend(false);
 
-        // Criar resposta
+        std::cout << "\n\n====== ✅ Requisição parseada com sucesso =======\n"
+                  << req.method << " " << req.uri << " " << req.version << "\n\n";
+
+        // 🧠 Roteamento
         Response res = Router::route(req, config);
 
-         // Log da resposta
-        std::cout << "\n======== Response ========" << std::endl;
-        std::cout << "Status: " << res.status << std::endl;
-        std::cout << "Content-Type: " << res.headers["Content-Type"] << std::endl;
-        std::cout << "Connection: " << res.headers["Connection"] << std::endl;
-        std::cout << "Content-Length: " << res.headers["Content-Length"] << std::endl;
+        std::cout << "\n\n======= ➡️  Resposta gerada ========\nStatus: "
+                  << res.status << " "
+                  << Response::reasonPhrase(res.status) << "\n\n";
 
-        // Converter a resposta em string e adicionar no buffer de saída
-        std::string out = res.toString();
-        conn->getOutputBuffer().append(out);
-
-        // Mudar o fd da conexão para escrita
+        // Enviar resposta
+        conn->getOutputBuffer().append(res.toString());
         poller.modifyFd(conn_fd, EPOLLOUT | EPOLLET);
+
+        iteration++;
     }
+
+    if (iteration == 0)
+        std::cout << "⏳ Nenhum request completo ainda\n";
+    else
+        std::cout << "🔄 " << iteration << " request(s) processado(s)\n";
 }
+
 
 void    Server::handleWrite(int conn_fd)
 {
@@ -182,8 +206,7 @@ void    Server::handleWrite(int conn_fd)
         return ;
     }
     
-    const std::vector<char> &data = out.getData();
-    ssize_t sent = ::write(conn_fd, &data[0], data.size());
+    ssize_t sent = conn->writeToFd(out.data(), out.size());
     if (sent > 0)
         out.consume(sent);
 
@@ -219,7 +242,7 @@ void    Server::checkWriteTimeouts()
         if (!c->getInputBuffer().empty() && idle > read_timeout)
         {
             // READ TIMEOUT
-            std::cout << "[TIMEOUT] Read Timeout FD " << c->getFd() << std::endl;
+            std::cout << "\n[TIMEOUT] Read Timeout FD " << c->getFd() << std::endl;
             poller.removeFd(c->getFd());
             ::close(c->getFd());
             delete c;
@@ -230,7 +253,7 @@ void    Server::checkWriteTimeouts()
         if (c->getInputBuffer().empty() && idle > keepalive_timeout)
         {
             // KEEP-ALIVE TIMEOUT
-            std::cout << "[TIMEOUT] Keep-alive Timeout FD " << c->getFd() << std::endl;
+            std::cout << "\n[TIMEOUT] Keep-alive Timeout FD " << c->getFd() << std::endl;
             poller.removeFd(c->getFd());
             ::close(c->getFd());
             delete c;

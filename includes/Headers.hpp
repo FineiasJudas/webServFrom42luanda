@@ -15,6 +15,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <fcntl.h>
+#include <wait.h>
 
 /* POSIX / sockets / epoll */
 #include <sys/epoll.h>

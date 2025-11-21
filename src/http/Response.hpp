@@ -9,6 +9,7 @@ struct  Response
     int     status;
     std::map<std::string, std::string> headers;
     std::string body;
+    
     Response() : status(200) {}
 
     static std::string reasonPhrase(int code)
@@ -41,5 +42,19 @@ struct  Response
         return oss.str();
     }
 };
+
+bool    cgiDetect(const Request &req, const ServerConfig &config, Response &res);
+
+Response   methodGet(const ServerConfig &config, const std::string &path);
+
+Response   methodPost(const Request &req,
+    const ServerConfig &config, const std::string &path);
+
+Response    methodDelete(const std::string &path, const ServerConfig &config);
+
+Response    notAloweMethodResponse(const ServerConfig &config);
+
+Response methodPostMultipart(const Request &req,
+                             const std::string &uploadDir);
 
 #endif
