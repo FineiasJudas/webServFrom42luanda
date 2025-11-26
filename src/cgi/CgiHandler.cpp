@@ -14,10 +14,13 @@ static std::string trim(const std::string &s)
 static void splitUri(const std::string &uri, std::string &path, std::string &query)
 {
     size_t q = uri.find('?');
-    if (q == std::string::npos) {
+    if (q == std::string::npos)
+    {
         path = uri;
         query.clear();
-    } else {
+    }
+    else
+    {
         path = uri.substr(0, q);
         query = uri.substr(q + 1);
     }
@@ -80,180 +83,157 @@ static std::vector<std::string> buildEnv(const Request &req,
 }
 
 CgiResult CgiHandler::execute(const Request& req,
-    const std::string& script_path, const ServerConfig& config)
+                              const std::string& script_path,
+                              const ServerConfig& config)
 {
     CgiResult result;
     result.exit_status = -1;
     result.raw_output.clear();
 
-    // Check script exists and is a file
+    // ============================
+    // 1) Verifica se o script existe
+    // ============================
     struct stat st;
     if (stat(script_path.c_str(), &st) < 0)
     {
-        // script not found
+        result.raw_output =
+            "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
+            "CGI script not found: " + script_path + "\n";
+        return result;
+    }
+
+    // ============================
+    // 2) Monta o interpretador correto
+    // ============================
+    std::string     interpreter;
+    for (size_t i = 0; i < config.locations.size(); i++)
+    {
+        if (script_path.find(config.locations[i].root) == 0 &&
+            !config.locations[i].cgi_path.empty())
+        {
+            interpreter = config.locations[i].cgi_path;
+            break;
+        }
+    }
+    
+    if (interpreter.empty())
+    {
+        result.raw_output =
+            "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
+            "CGI interpreter not defined in config\n";
+        return result;
+    }
+
+    // interpreter deve existir no SO
+    if (access(interpreter.c_str(), X_OK) != 0)
+    {
         std::ostringstream ss;
-        ss << "Status: 500\r\nContent-Type: text/plain\r\n\r\nCGI script not found: " << script_path << "\n";
+        ss << "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
+           << "CGI interpreter not executable: " << interpreter
+           << " (" << strerror(errno) << ")\n";
         result.raw_output = ss.str();
         return result;
     }
 
-    // build environment vector
+    // ============================
+    // 3) Monta o ENV
+    // ============================
     std::vector<std::string> env_strings = buildEnv(req, script_path, config);
 
-    // convert to char* envp[]
     std::vector<char*> envp;
     for (size_t i = 0; i < env_strings.size(); ++i)
-    {
-        char *e = strdup(env_strings[i].c_str());
-        envp.push_back(e);
-    }
+        envp.push_back(strdup(env_strings[i].c_str()));
     envp.push_back(NULL);
 
-    // argv: execute the script file itself. If you want to call an interpreter explicitly,
-    // change argv to point to interpreter and first arg to script_path.
+    // ============================
+    // 4) Monta o ARGV
+    // ============================
     std::vector<char*> argv;
-    // Use script_path as argv[0]
-    char *a0 = strdup(script_path.c_str());
-    argv.push_back(a0);
+    argv.push_back(strdup(interpreter.c_str()));  // argv[0]
+    argv.push_back(strdup(script_path.c_str()));  // argv[1]
     argv.push_back(NULL);
 
-    // Create pipes
+    // ============================
+    // 5) Cria pipes STDIN / STDOUT
+    // ============================
     int stdin_pipe[2];
     int stdout_pipe[2];
 
-    if (pipe(stdin_pipe) == -1)
+    if (pipe(stdin_pipe) < 0 || pipe(stdout_pipe) < 0)
     {
-        // pipe error
-        std::ostringstream ss;
-        ss << "Status: 500\r\nContent-Type: text/plain\r\n\r\nCGI pipe creation failed: " << strerror(errno) << "\n";
-        result.raw_output = ss.str();
-        // free env/argv
-        for (size_t i=0;i<envp.size()-1;++i) free(envp[i]);
-        free(a0);
-        return result;
-    }
-    if (pipe(stdout_pipe) == -1)
-    {
-        close(stdin_pipe[0]); close(stdin_pipe[1]);
-        std::ostringstream ss;
-        ss << "Status: 500\r\nContent-Type: text/plain\r\n\r\nCGI pipe creation failed: " << strerror(errno) << "\n";
-        result.raw_output = ss.str();
-        for (size_t i=0;i<envp.size()-1;++i) free(envp[i]);
-        free(a0);
+        result.raw_output =
+            "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
+            "CGI pipe creation failed\n";
         return result;
     }
 
+    // ============================
+    // 6) Fork
+    // ============================
     pid_t pid = fork();
-    if (pid < 0) {
-        // fork failed
-        close(stdin_pipe[0]); close(stdin_pipe[1]);
-        close(stdout_pipe[0]); close(stdout_pipe[1]);
-        std::ostringstream ss;
-        ss << "Status: 500\r\nContent-Type: text/plain\r\n\r\nCGI fork failed: " << strerror(errno) << "\n";
-        result.raw_output = ss.str();
-        for (size_t i=0;i<envp.size()-1;++i) free(envp[i]);
-        free(a0);
+    if (pid < 0)
+    {
+        result.raw_output =
+            "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
+            "CGI fork failed\n";
         return result;
     }
 
-    if (pid == 0) {
-        // Child process
-        // dup stdin_pipe[0] -> STDIN_FILENO
-        if (dup2(stdin_pipe[0], STDIN_FILENO) == -1) {
-            _exit(127);
-        }
-        // dup stdout_pipe[1] -> STDOUT_FILENO
-        if (dup2(stdout_pipe[1], STDOUT_FILENO) == -1) {
-            _exit(127);
-        }
-        // Also redirect stderr to stdout so we capture errors
-        if (dup2(stdout_pipe[1], STDERR_FILENO) == -1) {
-            _exit(127);
-        }
+    // ============================
+    // 7) Child Process
+    // ============================
+    if (pid == 0)
+    {
+        // → STDIN
+        dup2(stdin_pipe[0], STDIN_FILENO);
+        // → STDOUT
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stdout_pipe[1], STDERR_FILENO);
 
-        // Close unused fds in child
-        close(stdin_pipe[0]); close(stdin_pipe[1]);
-        close(stdout_pipe[0]); close(stdout_pipe[1]);
-
-        // execve
-        // Note: envp.data() isn't C++98; use envp[0]... prepare array
-        // Build env array for execve
-        size_t envcount = envp.size();
-        char **env_array = (char**)malloc(sizeof(char*) * envcount);
-        for (size_t i = 0; i < envcount; ++i) env_array[i] = envp[i];
-        // Build argv array
-        size_t argcnt = argv.size();
-        char **argv_array = (char**)malloc(sizeof(char*) * argcnt);
-        for (size_t i = 0; i < argcnt; ++i) argv_array[i] = argv[i];
-
-        // Execute script directly. If script is not executable or lacks shebang, this will fail.
-        execve(script_path.c_str(), argv_array, env_array);
-
-        // If execve fails
-        _exit(127);
-    } else {
-        // Parent
-        // Close child's ends
-        close(stdin_pipe[0]);
-        close(stdout_pipe[1]);
-
-        // Write request body to child's stdin (if any)
-        ssize_t total_written = 0;
-        const char *body_ptr = req.body.c_str();
-        ssize_t body_len = (ssize_t)req.body.size();
-
-        while (total_written < body_len) {
-            ssize_t w = write(stdin_pipe[1], body_ptr + total_written, body_len - total_written);
-            if (w < 0) {
-                if (errno == EINTR) continue;
-                // write error
-                break;
-            }
-            total_written += w;
-        }
-        // finished writing
         close(stdin_pipe[1]);
-
-        // Read all from child's stdout
-        const size_t BUF_SZ = 4096;
-        char buffer[BUF_SZ];
-        std::ostringstream out;
-
-        while (true) {
-            ssize_t r = read(stdout_pipe[0], buffer, BUF_SZ);
-            if (r < 0) {
-                if (errno == EINTR) continue;
-                // read error -> break
-                break;
-            } else if (r == 0) {
-                // EOF
-                break;
-            } else {
-                out.write(buffer, r);
-            }
-        }
-
-        // Close read end
         close(stdout_pipe[0]);
 
-        // Wait for child
-        int status = 0;
-        pid_t w = waitpid(pid, &status, 0);
-        if (w == -1) {
-            result.exit_status = -1;
-        } else {
-            if (WIFEXITED(status)) result.exit_status = WEXITSTATUS(status);
-            else result.exit_status = -1;
-        }
+        execve(interpreter.c_str(), argv.data(), envp.data());
 
-        // Fill result
-        result.raw_output = out.str();
-
-        // free envp and argv allocated strings
-        for (size_t i = 0; i < envp.size()-1; ++i) free(envp[i]); // last is NULL
-        free(a0);
-        // argv had only a0; if you allocate more later, free them too
+        _exit(127);  // exec falhou
     }
+
+    // ============================
+    // 8) Parent Process
+    // ============================
+    close(stdin_pipe[0]);
+    close(stdout_pipe[1]);
+
+    // envia body (POST)
+    write(stdin_pipe[1], req.body.c_str(), req.body.size());
+    close(stdin_pipe[1]);
+
+    // lê STDOUT do CGI
+    char buffer[4096];
+    std::ostringstream out;
+    ssize_t r;
+
+    while ((r = read(stdout_pipe[0], buffer, sizeof(buffer))) > 0)
+        out.write(buffer, r);
+
+    close(stdout_pipe[0]);
+
+    // espera processo
+    int status;
+    waitpid(pid, &status, 0);
+
+    if (WIFEXITED(status))
+        result.exit_status = WEXITSTATUS(status);
+    else
+        result.exit_status = -1;
+
+    result.raw_output = out.str();
+
+    // libera memória
+    for (size_t i = 0; i < envp.size(); ++i)
+        free(envp[i]);
+    for (size_t i = 0; i < argv.size(); ++i)
+        free(argv[i]);
 
     return result;
 }
@@ -288,7 +268,7 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
     res.body = body_part;
 
     // 2. parse headers linha por linha
-    std::istringstream iss(header_part);
+    std::istringstream  iss(header_part);
     std::string line;
     bool has_status = false;
 
@@ -330,12 +310,13 @@ Response CgiHandler::handleCgiRequest(const Request &req,
                                   const ServerConfig &config,
                                   const LocationConfig &loc)
 {
-    Response res;
+    Response    res;
 
     // monta caminho real do script
-    std::string script_path = loc.root + "/" + req.uri.substr(loc.path.size());
 
-    CgiResult result = CgiHandler::execute(req, script_path, config);
+    std::string script_path = loc.root + req.uri.substr(loc.path.size());
+
+    CgiResult   result = CgiHandler::execute(req, script_path, config);
 
     if (result.exit_status != 0 && result.exit_status != 200 && !result.raw_output.size())
     {

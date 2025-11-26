@@ -58,12 +58,32 @@
       color: var(--cor-texto);
       gap: 8px;
     }
+
+    .voltar
+    {
+      text-decoration: none;
+      margin-top: 30px;
+      padding: 10px 20px;
+      border-radius: 15px;
+      border: 0px;
+      text-align: center;
+      background-color: var(--cor-fundo);
+      color: var(--cor-texto);
+    }
+    .voltar:hover
+    {
+        background-color: var(--cor-primaria);
+        color: #fff;
+        transition: 0.3s;
+    }
+
   </style>
 </head>
 <body>
   <main>
     <img src="../errors/error.png" alt="Page Not Found Img" style="width: 150px; height: 150px;">
-    <h1 style="font-size: 30px;">Page Not Found!</h1>
+    <h1 style="font-size: 35px;">Not Found!</h1>
+     <a class="voltar" href="../index.html"> Voltar para ínicio </a>
   </main>
 
   <footer class="foot">

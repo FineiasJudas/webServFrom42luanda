@@ -4,6 +4,7 @@
 #include "../http/Response.hpp"
 #include "../http/Router.hpp"
 #include "../utils/Utils.hpp"
+#include "../utils/Logger.hpp"
 #include <iostream>
 #include <cstring>
 
@@ -31,7 +32,7 @@ Server::Server(const ServerConfig &conf)
         listenSockets.push_back(ls);
         poller.addFd(ls->getFd(),  EPOLLIN | EPOLLET);
     }
-    std::cout << "Servidor com " << listenSockets.size() << " sockets ouvindo\n";
+    Logger::log(Logger::INFO, "Servidor com " + Utils::toString(listenSockets.size()) + " sockets ouvindo");
 }
 
 Server::~Server()
@@ -45,7 +46,7 @@ Server::~Server()
 
 void    Server::run()
 {
-    std::cout << "Servidor rodando...\n";
+    Logger::log(Logger::INFO, "Servidor rodando...");
     while (true)
     {
         std::vector<struct epoll_event> events = poller.wait(1000);
@@ -54,7 +55,7 @@ void    Server::run()
             int fd = events[i].data.fd;
             uint32_t ev = events[i].events;
 
-            bool isListen = false;
+            bool    isListen = false;
             for (size_t j = 0; j < listenSockets.size(); ++j)
                 if (fd == listenSockets[j]->getFd())
                 {
@@ -97,21 +98,20 @@ void    Server::handleAccept(int listen_fd)
     // Adicionar a conexão aos fds monitorados pelo Poller
     poller.addFd(client_fd, EPOLLIN | EPOLLET);
     connections[client_fd] = new Connection(client_fd);
-    std::cout << "\n🧩 Nova conexão: FD " << client_fd << std::endl;
+    Logger::log(Logger::INFO, "Nova conexão: FD " + Utils::toString(client_fd));
 }
 
 void    Server::handleRead(int conn_fd)
 {
+    ssize_t     n;
+    char    buf[8192];
     Connection  *conn = connections[conn_fd];
+
     if (!conn)
     {
         closeConnection(conn_fd);
         return ;
     }
-
-    char    buf[8192];
-    ssize_t     n;
-
     // 🔁 1) Ler até EAGAIN (non-blocking)
     while (true)
     {
@@ -130,18 +130,16 @@ void    Server::handleRead(int conn_fd)
         }
     }
 
-    // 🧪 DEBUG
-    std::cout << "\n📨 Dados recebidos na conexão FD "
-              << conn_fd << ": "
-              << conn->getInputBuffer().size() << " bytes acumulados\n";
+    /* 🧪 DEBUG
+    Logger::log(Logger::INFO, "📨 Dados recebidos na conexão FD "
+              + Utils::toString( conn_fd) + ": "
+              + Utils::toString(conn->getInputBuffer().size()) + " bytes acumulados");*/
 
     // 🔍 2) PROCESSAR requests COMPLETOS
     int iteration = 0;
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
         Request     req;
-        std::cout << "\n🔍 Fazendo parse da requisição FD " << conn_fd << std::endl;
-
         if (!HttpParser::parseRequest(conn->getInputBuffer(), req, config.max_body_size))
         {
             Response    res;
@@ -155,7 +153,7 @@ void    Server::handleRead(int conn_fd)
             return ;
         }
 
-        // 🔌 Keep-alive / Close
+        // Verificar o Keep-alive / Close
         if (req.headers["Connection"] == "close")
             conn->setCloseAfterSend(true);
         else if (req.version == "HTTP/1.0" &&
@@ -164,15 +162,19 @@ void    Server::handleRead(int conn_fd)
         else
             conn->setCloseAfterSend(false);
 
-        std::cout << "\n\n====== ✅ Requisição parseada com sucesso =======\n"
-                  << req.method << " " << req.uri << " " << req.version << "\n\n";
+        Logger::log(Logger::INFO, req.method + " " + req.uri + " " + req.version + " recebido na FD "
+                  + Utils::toString(conn_fd));
 
         // 🧠 Roteamento
         Response res = Router::route(req, config);
 
-        std::cout << "\n\n======= ➡️  Resposta gerada ========\nStatus: "
-                  << res.status << " "
-                  << Response::reasonPhrase(res.status) << "\n\n";
+        res.status >= 200 && res.status <= 400 ? Logger::log(Logger::DEBUG, "Status "
+                  + Utils::toString(res.status) + " "
+                  + Response::reasonPhrase(res.status)) : res.status >= 500 ? Logger::log(Logger::WARN, "Status "
+                  + Utils::toString(res.status) + " "
+                  + Response::reasonPhrase(res.status)) : Logger::log(Logger::ERROR, "Status "
+                  + Utils::toString(res.status) + " "
+                  + Response::reasonPhrase(res.status));
 
         // Enviar resposta
         conn->getOutputBuffer().append(res.toString());
@@ -181,10 +183,13 @@ void    Server::handleRead(int conn_fd)
         iteration++;
     }
 
-    if (iteration == 0)
-        std::cout << "⏳ Nenhum request completo ainda\n";
+    /*if (iteration == 0)
+        Logger::log(Logger::INFO, "🔄 Nenhum request completo processado na FD "
+                  + Utils::toString(conn_fd));
     else
-        std::cout << "🔄 " << iteration << " request(s) processado(s)\n";
+        Logger::log(Logger::INFO, "✅ " + Utils::toString(iteration)
+                  + " request(s) processado(s) na FD "
+                  + Utils::toString(conn_fd));*/
 }
 
 
@@ -213,7 +218,7 @@ void    Server::handleWrite(int conn_fd)
     if (conn->shouldCloseAfterSend())
         closeConnection(conn_fd);
     else
-        poller.modifyFd(conn_fd, EPOLLOUT); // esperar próxima request (keep-alive)*/
+        poller.modifyFd(conn_fd, EPOLLOUT | EPOLLET); // esperar próxima request (keep-alive)*/
 }
 
 void    Server::closeConnection(int conn_fd)
@@ -225,7 +230,7 @@ void    Server::closeConnection(int conn_fd)
         connections.erase(conn_fd);
     }
     close(conn_fd);
-    std::cout << "\n🔒 Conexão fechada FD " << conn_fd << std::endl;
+    Logger::log(Logger::WARN, "Conexão fechada: FD " + Utils::toString(conn_fd));
 }
 
 void    Server::checkWriteTimeouts()
@@ -242,25 +247,24 @@ void    Server::checkWriteTimeouts()
         if (!c->getInputBuffer().empty() && idle > read_timeout)
         {
             // READ TIMEOUT
-            std::cout << "\n[TIMEOUT] Read Timeout FD " << c->getFd() << std::endl;
+            Logger::log(Logger::WARN, "[TIMEOUT] Read Timeout FD " + Utils::toString(c->getFd()));
             poller.removeFd(c->getFd());
             ::close(c->getFd());
             delete c;
             connections.erase(it++);
-            continue;
+            continue ;
         }
 
         if (c->getInputBuffer().empty() && idle > keepalive_timeout)
         {
             // KEEP-ALIVE TIMEOUT
-            std::cout << "\n[TIMEOUT] Keep-alive Timeout FD " << c->getFd() << std::endl;
+            Logger::log(Logger::WARN, "[TIMEOUT] Keep-Alive Timeout FD " + Utils::toString(c->getFd()));
             poller.removeFd(c->getFd());
             ::close(c->getFd());
             delete c;
             connections.erase(it++);
-            continue;
+            continue ;
         }
-
         ++it;
     }
 }

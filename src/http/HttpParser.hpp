@@ -5,7 +5,7 @@
 #include "../core/Buffer.hpp"
 #include "Request.hpp"
 
-class HttpParser
+class   HttpParser
 {
     public:
         static bool hasCompleteRequest(const Buffer &buffer);

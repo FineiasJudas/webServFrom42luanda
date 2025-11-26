@@ -1,61 +1,196 @@
 #include "Router.hpp"
+#include "../utils/Logger.hpp"
 #include "../http/Response.hpp"
 #include "../config/Config.hpp"
 #include "../utils/Utils.hpp"
+#include <dirent.h>
 #include "../cgi/CgiHandler.hpp"
 #include <sstream>
 
-Response    Router::route(const Request &req, const ServerConfig &config)
+static std::string  getExtension(const std::string &path)
 {
-    Response    res;
+    size_t pos = path.rfind('.');
 
-    // determine root from config (use first location root if set)
-    std::string root = "./examples/www";
-    if (!config.locations.empty() && !config.locations[0].root.empty())
-        root = config.locations[0].root;
-    std::string uri = req.uri;
-    if (uri.empty())
-        uri = "/";
+    if (pos == std::string::npos)
+        return "";
+    return path.substr(pos);
+}
 
-    // prevent URI with .. (basic safety)
-    if (uri.find("..") != std::string::npos)
+const LocationConfig    &findBestLocation(const std::string& uri,
+                                       const ServerConfig& config)
+{
+    const LocationConfig    *best = NULL;
+    size_t  bestLen = 0;
+
+    for (size_t i = 0; i < config.locations.size(); i++)
     {
-        res.status = 403;
-        res.body = "<html><body><h1>403 Forbidden</h1></body></html>";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
-        res.headers["Content-Type"] = "text/html";
-        return (res);
+        const LocationConfig& loc = config.locations[i];
+
+        // sanity check
+        if (loc.path.empty() || loc.path[0] != '/')
+            continue ;
+
+        // prefix match
+        //std::cout << "\nEncontar " << uri << " no PATH " << loc.path << std::endl;
+        if (uri.find(loc.path) == 0)
+        {
+            if (loc.path.size() > bestLen)
+            {
+                best = &loc;
+                bestLen = loc.path.size();
+            }
+        }
     }
 
-    std::string path = root;
-    // ensure root doesn't end with '/' duplicate
+    // fallback: usually "/"
+    if (!best)
+        // guaranteed by config parser
+        return config.locations[0];
 
-    if (!root.empty() && root[root.size()-1] == '/' && uri.size() > 0 && uri[0] == '/')
-        path += uri.substr(1);
-    else
-        path += uri;
+    return (*best);
+}
 
-    std::cout << "\nRota detectada: " << path << std::endl;
+Response handleUploadsList(const Request &req)
+{
+    (void)req;
 
-    if (req.method == "GET")
-        return methodGet(config, path);
-    else if (req.method == "POST")
+    Response res;
+    std::string folder = "./examples/www/uploads";
+
+    DIR *dir = opendir(folder.c_str());
+    if (!dir)
     {
-        // CGI?
-        if (cgiDetect(req, config, res))
-            return (res);
-        // POST normal (Opção C)
-        // multipart?
-        if (req.headers.count("Content-Type") &&
-            req.headers.at("Content-Type").find("multipart/form-data") != std::string::npos)
-        {
-            std::string uploadDir = config.locations[0].root; 
-            return methodPostMultipart(req, uploadDir);
-        }
+        res.status = 500;
+        res.body = "{\"error\": \"cannot open uploads folder\"}";
+        res.headers["Content-Type"] = "application/json";
+        return res;
+    }
+
+    std::stringstream json;
+    json << "{ \"files\": [";
+    bool first = true;
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)))
+    {
+        if (entry->d_name[0] == '.') continue;
+
+        if (!first) json << ",";
+        first = false;
+
+        json << "\"" << entry->d_name << "\"";
+    }
+
+    json << "] }";
+    closedir(dir);
+
+    res.status = 200;
+    res.body = json.str();
+    res.headers["Content-Type"] = "application/json";
+    return res;
+}
+
+Response    handleDeleteFile(const Request &req)
+{
+    Response res;
+
+    std::string name = req.headers.count("File-Name") ? req.headers.find("File-Name")->second : "";
+
+    std::cout << "Delete file: " << name << std::endl;
+
+    if (name.empty())
+    {
+        res.status = 400;
+        res.body = "{\"error\": \"missing file name\"}";
+        res.headers["Content-Type"] = "application/json";
+        return res;
+    }
+
+    std::string fullpath = "./examples/www/uploads/" + name;
+
+    if (unlink(fullpath.c_str()) != 0)
+    {
+        res.status = 404;
+        res.body = "{\"error\": \"file not found\"}";
+    }
+    else
+    {
+        res.status = 200;
+        res.body = "{\"message\": \"deleted\"}";
+    }
+
+    res.headers["Content-Type"] = "application/json";
+    return res;
+}
+
+
+Response Router::route(const Request &req, const ServerConfig &config)
+{
+    // 1) Encontrar location
+    const LocationConfig &loc = findBestLocation(req.uri, config);
+    Logger::log(Logger::INFO, "Rota encontrada: " + loc.path);
+
+    // 2) Bloquear directory traversal
+    if (req.uri.find("..") != std::string::npos)
+        return forbiddenPageResponse(config);
+
+    // ============================================================
+    // 3) ENDPOINT ESPECIAL → /uploads-list (GET)
+    // ============================================================
+    if (req.uri == "/uploads-list" && req.method == "GET")
+        return handleUploadsList(req);
+
+    // ============================================================
+    // 4) ENDPOINT ESPECIAL → /delete-file (DELETE)
+    // ============================================================
+    if (req.uri == "/delete-file" && req.method == "DELETE")
+        return handleDeleteFile(req);
+
+    std::cout << "========================================" << std::endl;
+
+    // ============================================================
+    // 5) CGI
+    // ============================================================
+    std::string ext = getExtension(req.uri);
+    if (!loc.cgi_extension.empty() && ext == loc.cgi_extension)
+        return CgiHandler::handleCgiRequest(req, config, loc);
+
+    // ============================================================
+    // 6) Resolver caminho real do arquivo
+    // ============================================================
+    std::string root = loc.root.empty() ? config.root : loc.root;
+    std::string path = root;
+
+    if (path[path.size() - 1] == '/' && req.uri[0] == '/')
+        path += req.uri.substr(1);
+    else
+        path += req.uri;
+
+    // ============================================================
+    // 7) GET
+    // ============================================================
+    if (req.method == "GET")
+        return methodGet(config, loc, path, req.uri);
+
+    // ============================================================
+    // 8) POST
+    // ============================================================
+    if (req.method == "POST")
+    {
+        if (!loc.upload_dir.empty())
+            return methodPostMultipart(req, loc.upload_dir);
+
         return methodPost(req, config, path);
     }
-    else if (req.method == "DELETE")
-        return methodDelete(path, config);      
-    else
-        return notAloweMethodResponse(config);
+
+    // ============================================================
+    // 9) DELETE em arquivos normais
+    // ============================================================
+    if (req.method == "DELETE")
+        return methodDelete(path, config);
+
+    // ============================================================
+    // 10) Método não permitido
+    // ============================================================
+    return notAloweMethodResponse(config);
 }

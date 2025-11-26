@@ -43,9 +43,10 @@ struct  Response
     }
 };
 
-bool    cgiDetect(const Request &req, const ServerConfig &config, Response &res);
-
-Response   methodGet(const ServerConfig &config, const std::string &path);
+Response    methodGet(const ServerConfig &config,
+                           const LocationConfig &loc,
+                           const std::string &path,
+                           const std::string &uri);
 
 Response   methodPost(const Request &req,
     const ServerConfig &config, const std::string &path);
@@ -53,6 +54,8 @@ Response   methodPost(const Request &req,
 Response    methodDelete(const std::string &path, const ServerConfig &config);
 
 Response    notAloweMethodResponse(const ServerConfig &config);
+
+Response forbiddenPageResponse(const ServerConfig &config);
 
 Response methodPostMultipart(const Request &req,
                              const std::string &uploadDir);

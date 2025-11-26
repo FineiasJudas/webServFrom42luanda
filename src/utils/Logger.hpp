@@ -1,40 +1,44 @@
-#pragma once
-#include "../../includes/Headers.hpp"
+#ifndef LOGGER_HPP
+#define LOGGER_HPP
+
 #include <string>
-#include <iostream>
-#include <ctime>
+#include <fstream>
 
-class   Logger
-{
-    public:
-        enum Level {
-            INFO,
-            DEBUG,
-            ERROR,
-            CONNECTION,
-            CGI
-        };
+class Logger {
+public:
+    enum LogLevel {
+        DEBUG = 0,
+        INFO  = 1,
+        WARN  = 2,
+        ERROR = 3
+    };
 
-        static void log(Level level, const std::string &msg) {
-            std::string prefix = timestamp() + " ";
+    // Inicializa o logger. Se filename vazio -> escreve apenas no stdout.
+    static void init(LogLevel level, const std::string &filename = "");
 
-            switch (level) {
-                case INFO:       prefix += "[INFO] "; break;
-                case DEBUG:      prefix += "[DEBUG] "; break;
-                case ERROR:      prefix += "[ERROR] "; break;
-                case CONNECTION: prefix += "[CONN] "; break;
-                case CGI:        prefix += "[CGI] "; break;
-            }
+    // Fecha ficheiro de log (se aberto)
+    static void shutdown();
 
-            std::cout << prefix << msg << std::endl;
-        }
+    // Função principal de log
+    static void log(LogLevel level, const std::string &message);
 
-    private:
-        static std::string timestamp() {
-            time_t now = time(NULL);
-            char buf[32];
-            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&now));
-            return buf;
-        }
+private:
+    static LogLevel currentLevel;
+    static std::ofstream logFile;
 
+    static std::string levelToString(LogLevel level);
+    static std::string timestamp();
 };
+
+// Macros auxiliares para mostrar file:line (stringizada)
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
+// Macros de uso simples:
+// exemplo: LOG_INFO("Servidor iniciado");
+#define LOG_DEBUG(msg) Logger::log(Logger::DEBUG, std::string(__FILE__ ":" STR(__LINE__) " ") + (msg))
+#define LOG_INFO(msg)  Logger::log(Logger::INFO,  std::string(__FILE__ ":" STR(__LINE__) " ") + (msg))
+#define LOG_WARN(msg)  Logger::log(Logger::WARN,  std::string(__FILE__ ":" STR(__LINE__) " ") + (msg))
+#define LOG_ERROR(msg) Logger::log(Logger::ERROR, std::string(__FILE__ ":" STR(__LINE__) " ") + (msg))
+
+#endif // LOGGER_HPP

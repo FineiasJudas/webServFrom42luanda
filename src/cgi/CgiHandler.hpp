@@ -19,9 +19,9 @@ class   CgiHandler
 {
     public:
         static CgiResult execute(
-            const Request& req,
-            const std::string& script_path,
-            const ServerConfig& config
+            const Request &req,
+            const std::string &script_path,
+            const ServerConfig &config
         );
         static Response handleCgiRequest(const Request &req,
                                   const ServerConfig &config,

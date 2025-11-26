@@ -3,6 +3,7 @@
 #include "Response.hpp"
 #include "../config/Config.hpp"
 #include "Request.hpp"
+#include <dirent.h>
 
 static bool fileExists(const std::string &path)
 {
@@ -29,13 +30,18 @@ static std::string  readFile(const std::string &path)
     return (ss.str());
 }
 
-static std::string getExtension(const std::string &path)
+static bool getAutoIndex(const ServerConfig &server,
+                          const LocationConfig &loc)
 {
-    size_t pos = path.rfind('.');
-    if (pos == std::string::npos)
-        return "";
-    return path.substr(pos);
+    if (loc.auto_index_set)
+        return loc.auto_index;
+
+    if (server.auto_index_set)
+        return server.auto_index;
+
+    return false; // default nginx
 }
+
 
 static std::string  getMimeType(const std::string &path)
 {
@@ -58,7 +64,8 @@ static std::string  getMimeType(const std::string &path)
         inited = true;
     }
 
-    size_t dot = path.find_last_of('.');
+    size_t  dot = path.find_last_of('.');
+
     if (dot == std::string::npos)
         return ("application/octet-stream");
 
@@ -74,9 +81,9 @@ std::string getBoundary(const std::string &contentType)
 {
     std::string key = "boundary=";
     size_t pos = contentType.find(key);
+
     if (pos == std::string::npos)
         return "";
-
     return contentType.substr(pos + key.size());
 }
 
@@ -88,21 +95,21 @@ bool    extractMultipartFile(const std::string &body,
     std::string sep = "--" + boundary;
     size_t pos = body.find(sep);
     if (pos == std::string::npos)
-        return false;
+        return (false);
 
     pos += sep.size() + 2; // skip boundary + CRLF
 
     // encontrar headers da parte
     size_t header_end = body.find("\r\n\r\n", pos);
     if (header_end == std::string::npos)
-        return false;
+        return (false);
 
     std::string header = body.substr(pos, header_end - pos);
 
     // encontrar filename
     size_t fn_pos = header.find("filename=\"");
     if (fn_pos == std::string::npos)
-        return false;
+        return (false);
 
     fn_pos += 10;
     size_t fn_end = header.find("\"", fn_pos);
@@ -112,19 +119,18 @@ bool    extractMultipartFile(const std::string &body,
     size_t data_start = header_end + 4;
     size_t data_end = body.find(sep, data_start);
     if (data_end == std::string::npos)
-        return false;
+        return (false);
 
     filedata = body.substr(data_start, data_end - data_start - 2);
 
-    return true;
+    return (true);
 }
-
 
 static Response notFoundResponse(const ServerConfig &config)
 {
     Response    res;
-
     std::string errorPath;
+
     if (config.error_pages.count(404))
         errorPath = config.error_pages.find(404)->second;
     if (!errorPath.empty())
@@ -141,72 +147,115 @@ static Response notFoundResponse(const ServerConfig &config)
     }
     return res;
 }
-bool    cgiDetect(const Request &req,
-                                const ServerConfig &config, Response &res)
+
+Response forbiddenPageResponse(const ServerConfig &config)
 {
-    std::string ext = getExtension(req.uri);
+    Response    res;
+    std::string errorPath;
 
-    for (size_t i = 0; i < config.locations.size(); ++i)
+    if (config.error_pages.count(403))
+        errorPath = config.error_pages.find(403)->second;
+    if (!errorPath.empty())
     {
-        const LocationConfig &loc = config.locations[i];
-
-        // 1. o location precisa ter CGI habilitado
-        if (loc.cgi_extension.empty())
-            continue ;
-        else
-            std::cout << "\n1 - O location tem CGI habilitado" << std::endl;
-
-        // 2. a URI precisa começar com o path do location
-        if (req.uri.find(loc.path) != 0)
-            continue ;
-        else
-            std::cout << "\n2 - A URI começa com o path do location" << std::endl;
-        // 3. extensão tem que bater
-        if (ext != loc.cgi_extension)
-            continue ;
-        else
-            std::cout << "\n3 - A extensão bate" << std::endl;
-
-        // 4. caminho completo do script deve existir
-        std::string realPath = loc.root + "/" + req.uri.substr(loc.path.size());
-        if (!fileExists(realPath))
-            continue ;
-        else
+        std::string content = readFile(errorPath);
+        if (!content.empty())
         {
-            std::cout << "\n4 - O caminho completo do script existe" << std::endl;
-            std::cout << "\nRota do CGI detectada: " << realPath << std::endl;
-            res = CgiHandler::handleCgiRequest(req, config, loc);
-            return (true);
+            res.body = content;
+            res.status = 403;
+            res.headers["Content-Type"] = "text/html";
+            res.headers["Content-Length"] = Utils::toString(res.body.size());
+            return (res);
         }
     }
-    return (false);
+    return res;
 }
 
-Response   methodGet(const ServerConfig &config,
-                                const std::string &path)
+static Response    generateDirectoryListing(const std::string &uri,
+                                          const std::string &path)
+{
+    Response res;
+
+    DIR *dir = opendir(path.c_str());
+    if (!dir)
+    {
+        res.status = 500;
+        res.body = "<h1>500 Internal Server Error</h1>";
+        res.headers["Content-Type"] = "text/html";
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        return res;
+    }
+
+    std::stringstream ss;
+    ss << "<html><body>";
+    ss << "<h1>Index of " << uri << "</h1><ul>";
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)))
+    {
+        std::string name = entry->d_name;
+        if (name == ".")
+            continue ;
+
+        ss << "<li><a href=\"" << uri;
+        if (uri[uri.size()-1] != '/') ss << "/";
+        ss << name << "\">" << name << "</a></li>";
+    }
+
+    ss << "</ul></body></html>";
+    closedir(dir);
+
+    res.status = 200;
+    res.body = ss.str();
+    res.headers["Content-Type"] = "text/html";
+    res.headers["Content-Length"] = Utils::toString(res.body.size());
+    return res;
+}
+
+Response methodGet(const ServerConfig &config,
+                           const LocationConfig &loc,
+                           const std::string &path,
+                           const std::string &uri)
 {
     Response    res;
 
+    // 1. Se existe um arquivo exatamente no path → retornar arquivo
     if (fileExists(path))
     {
         res.body = readFile(path);
         res.status = 200;
         res.headers["Content-Type"] = getMimeType(path);
         res.headers["Content-Length"] = Utils::toString(res.body.size());
-        return (res);
+        return res;
     }
-    // directory with index.html
-    if (dirExists(path) && fileExists(path + "/index.html"))
+
+    // 2. Se é diretório
+    if (dirExists(path))
     {
-        res.body = readFile(path + "/index.html");
-        res.status = 200;
-        res.headers["Content-Type"] = "text/html";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
-        return (res);
+        std::string index = path + "/index.html";
+
+        // 2.a. Se tem index.html → retornar index.html
+        if (fileExists(index))
+        {
+            res.body = readFile(index);
+            res.status = 200;
+            res.headers["Content-Type"] = "text/html";
+            res.headers["Content-Length"] = Utils::toString(res.body.size());
+            return res;
+        }
+
+        // 2.b. Se auto_index está on → gerar listagem
+        bool autoIndex = getAutoIndex(config, loc);
+
+        if (autoIndex)
+            return generateDirectoryListing(uri, path);
+
+
+        // 2.c. Caso contrário → Forbidden
+        return forbiddenPageResponse(config);
     }
-    // not found
-    res = notFoundResponse(config);
-    return (res);
+
+    // 3. Caso contrário → Not found
+    return notFoundResponse(config);
 }
 
 Response methodPost(const Request &req,
@@ -339,8 +388,9 @@ Response methodPostMultipart(const Request &req,
     out.write(filedata.c_str(), filedata.size());
     out.close();
 
+    std::string content = readFile("./examples/www/upload/sucessUpload.html");
     res.status = 201;
-    res.body = "<h1>Upload ok!</h1>";
+    res.body = content;
     res.headers["Content-Type"] = "text/html";
     res.headers["Content-Length"] = Utils::toString(res.body.size());
     return res;

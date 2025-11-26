@@ -8,17 +8,20 @@ INCLUDES    = -I./includes
 
 RM          = rm -f
 
-SRCS =  src/main.cpp \
-        src/core/Buffer.cpp \
-        src/core/Connection.cpp \
-        src/core/PollerEpoll.cpp \
-        src/core/Server.cpp \
-        src/core/ListenSocket.cpp \
-        src/http/HttpParser.cpp \
-        src/http/Router.cpp \
-        src/http/Response.cpp \
-        src/config/ConfigParser.cpp \
-		src/cgi/CgiHandler.cpp
+SRCS = \
+    src/main.cpp \
+    src/core/Buffer.cpp \
+    src/core/Connection.cpp \
+    src/core/PollerEpoll.cpp \
+    src/core/Server.cpp \
+    src/core/ListenSocket.cpp \
+    src/http/HttpParser.cpp \
+    src/http/Router.cpp \
+    src/http/Response.cpp \
+    src/config/ConfigParser.cpp \
+    src/cgi/CgiHandler.cpp \
+    src/utils/Logger.cpp   # <-- ADICIONE ISTO
+
 
 OBJS = $(SRCS:.cpp=.o)
 
