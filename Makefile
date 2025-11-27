@@ -13,8 +13,8 @@ SRCS = \
     src/core/Buffer.cpp \
     src/core/Connection.cpp \
     src/core/PollerEpoll.cpp \
-    src/core/Server.cpp \
     src/core/ListenSocket.cpp \
+    src/core/MasterServer.cpp \
     src/http/HttpParser.cpp \
     src/http/Router.cpp \
     src/http/Response.cpp \

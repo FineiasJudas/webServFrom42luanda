@@ -93,6 +93,7 @@ bool    extractMultipartFile(const std::string &body,
                           std::string &filedata)
 {
     std::string sep = "--" + boundary;
+
     size_t pos = body.find(sep);
     if (pos == std::string::npos)
         return (false);

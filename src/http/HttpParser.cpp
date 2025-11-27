@@ -102,9 +102,7 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
     // 2. CHUNKED DETECTADO?
     if (req.headers.count("Transfer-Encoding") &&
         req.headers["Transfer-Encoding"] == "chunked")
-    {
         return parseChunkedBody(buffer, req);
-    }
 
     // 3. CASO NORMAL: CONTENT-LENGTH
     if (req.headers.count("Content-Length"))

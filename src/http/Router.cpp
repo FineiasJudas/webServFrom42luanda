@@ -168,7 +168,7 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     Request tmp = req;
 
     // 1) Encontrar location
-    const LocationConfig &loc = findBestLocation(req.uri, config);
+    const LocationConfig    &loc = findBestLocation(req.uri, config);
     Logger::log(Logger::INFO, "Rota encontrada: " + loc.path);
 
     // 2) Bloquear directory traversal

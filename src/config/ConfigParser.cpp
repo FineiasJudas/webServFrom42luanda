@@ -88,7 +88,7 @@ void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server
             break ;
 
         std::istringstream iss(line);
-        std::string key;
+        std::string     key;
 
         iss >> key;
         if (key == "listen")
@@ -96,6 +96,12 @@ void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server
             std::string v;
             while (iss >> v)
                 server.listen.push_back(v);
+        }
+        else if (key == "server_name")
+        {
+            std::string v;
+            while (iss >> v)
+                server.server_names.push_back(v);
         }
         else if (key == "auto_index")
         {

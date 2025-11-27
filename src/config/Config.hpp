@@ -25,6 +25,7 @@ struct LocationConfig
 struct ServerConfig
 {
     std::vector<std::string>    listen;
+    std::vector<std::string>    server_names;
     std::map<int, std::string>  error_pages;
     size_t  max_body_size;
     std::vector<LocationConfig> locations;
