@@ -77,13 +77,34 @@
         transition: 0.3s;
     }
 
+    .continue
+    {
+        text-decoration: none;
+        margin-top: 30px;
+        padding: 10px 20px;
+        border-radius: 15px;
+        border: 0px;
+        text-align: center;
+        background-color: var(--cor-primaria);
+        color: #fff;
+    }
+    .continue:hover
+    {
+        background-color: var(--cor-fundo);
+        color: var(--cor-texto);
+        transition: 0.3s;
+    }
+
   </style>
 </head>
 <body>
   <main>
     <img src="./uploadSucess.png" alt="Upload Img" style="width: 160px; height: 140px;">
     <h1 style="font-size: 35px; color: #111; margin-top: 12px;">Upload made sucessfuly!</h1>
-    <a class="voltar" href="../index.html"> Voltar para ínicio </a>
+    <div style="display: flex; flex-direction: row; gap: 10px;">
+      <a class="voltar" href="../index.html"> Voltar para ínicio </a>
+      <a class="continue" href="./uploads.html"> Continue </a>
+    </div>
   </main>
 
   <footer class="foot">

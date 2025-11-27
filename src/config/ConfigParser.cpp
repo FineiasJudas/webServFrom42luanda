@@ -94,7 +94,8 @@ void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server
         if (key == "listen")
         {
             std::string v;
-            while (iss >> v) server.listen.push_back(v);
+            while (iss >> v)
+                server.listen.push_back(v);
         }
         else if (key == "auto_index")
         {
@@ -132,6 +133,7 @@ void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server
     if (!hasRootLocation)
     {
         LocationConfig  loc;
+    
         loc.path = "/";
         loc.root = server.root; // root do servidor
         server.locations.push_back(loc);
@@ -175,6 +177,5 @@ Config  ConfigParser::parseFile(const std::string &filename)
             conf.servers.push_back(server);
         }
     }
-
-    return conf;
+    return (conf);
 }

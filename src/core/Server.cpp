@@ -140,11 +140,25 @@ void    Server::handleRead(int conn_fd)
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
         Request     req;
+
         if (!HttpParser::parseRequest(conn->getInputBuffer(), req, config.max_body_size))
         {
             Response    res;
             res.status = 400;
-            res.body = "<h1>400 Bad Request</h1>";
+            res.body = "<h1>400 Bad Request</h1><a href=\"/\">Voltar</a>";
+            res.headers["Content-Length"] = Utils::toString(res.body.size());
+            res.headers["Content-Type"] = "text/html";
+
+            conn->getOutputBuffer().append(res.toString());
+            poller.modifyFd(conn_fd, EPOLLOUT | EPOLLET);
+            return ;
+        }
+        if (req.too_large_body)
+        {
+            Response    res;
+
+            res.status = 413;
+            res.body = "<h1>413 Payload Too Large</h1><a href=\"/\">Voltar</a>";
             res.headers["Content-Length"] = Utils::toString(res.body.size());
             res.headers["Content-Type"] = "text/html";
 

@@ -183,7 +183,7 @@
     #uploadButton
     {
         padding: 12px 60px;
-        border-radius: 40px;
+        border-radius: 15px;
         border: 0px;
         color: white;
         background-color: #0e1529;
@@ -259,14 +259,14 @@
       
       img
       {
-        width: 150px;
+        width: 140px;
         height: 100px
       }
       
       #uploadButton
       {
-          padding: 12px 40px;
-          border-radius: 40px;
+          padding: 9px 35px;
+          border-radius: 15px;
           border: 0px;
           color: white;
           background-color: #373d4d;
@@ -509,13 +509,16 @@ async function deleteFile(filename) {
     try {
         const res = await fetch(`/delete-file?name=${filename}`, { method: "DELETE" });
 
-        if (res.status === 200) {
+        if (res.status === 200)
+        {
             alert("Arquivo deletado!");
             loadFiles(); // recarregar grid
-        } else {
-            alert("Erro ao deletar o arquivo!");
         }
-    } catch (err) {
+         else
+            alert("Erro ao deletar o arquivo!");
+    }
+    catch (err)
+    {
         alert("Erro ao deletar.");
         console.error(err);
     }

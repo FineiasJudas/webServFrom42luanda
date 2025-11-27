@@ -179,7 +179,7 @@ static Response    generateDirectoryListing(const std::string &uri,
     if (!dir)
     {
         res.status = 500;
-        res.body = "<h1>500 Internal Server Error</h1>";
+        res.body = "<h1>500 Internal Server Error</h1><a href=\"/\">Voltar</a>";
         res.headers["Content-Type"] = "text/html";
         res.headers["Content-Length"] = Utils::toString(res.body.size());
         return res;
@@ -270,7 +270,7 @@ Response methodPost(const Request &req,
     if (path[path.size() - 1] == '/')
     {
         res.status = 400;
-        res.body = "<h1>400 Bad Request (path is a directory)</h1>";
+        res.body = "<h1>400 Bad Request (path is a directory)</h1><a href=\"/\">Voltar</a>";
         res.headers["Content-Type"] = "text/html";
         res.headers["Content-Length"] = Utils::toString(res.body.size());
         return res;
@@ -282,7 +282,7 @@ Response methodPost(const Request &req,
     if (!dirExists(dir))
     {
         res.status = 404;
-        res.body = "<h1>404 Not Found (directory does not exist)</h1>";
+        res.body = "<h1>404 Not Found (directory does not exist)</h1><a href=\"/\">Voltar</a>";
         res.headers["Content-Type"] = "text/html";
         res.headers["Content-Length"] = Utils::toString(res.body.size());
         return res;
@@ -295,7 +295,7 @@ Response methodPost(const Request &req,
     if (!out)
     {
         res.status = 500;
-        res.body = "<h1>500 Internal Server Error (cannot write file)</h1>";
+        res.body = "<h1>500 Internal Server Error (cannot write file)</h1><a href=\"/\">Voltar</a>";
         res.headers["Content-Type"] = "text/html";
         res.headers["Content-Length"] = Utils::toString(res.body.size());
         return res;
@@ -352,7 +352,7 @@ Response notAloweMethodResponse(const ServerConfig &config)
         }
     }
     res.status = 405;
-    res.body = "<html><body><h1>405 Method Not Allowed</h1></body></html>";
+    res.body = "<html><body><h1>405 Method Not Allowed</h1></body></html><a href=\"/\">Voltar</a>";
     res.headers["Content-Type"] = "text/html";
     res.headers["Content-Length"] = Utils::toString(res.body.size());
     return (res);
@@ -368,7 +368,7 @@ Response methodPostMultipart(const Request &req,
     if (boundary.empty())
     {
         res.status = 400;
-        res.body = "<h1>400 Bad Request (no boundary)</h1>";
+        res.body = "<h1>400 Bad Request (no boundary)</h1><a href=\"/\">Voltar</a>";
         res.headers["Content-Length"] = Utils::toString(res.body.size());
         return res;
     }
@@ -376,7 +376,7 @@ Response methodPostMultipart(const Request &req,
     if (!extractMultipartFile(req.body, boundary, filename, filedata))
     {
         res.status = 400;
-        res.body = "<h1>400 Bad Request (cannot parse multipart)</h1>";
+        res.body = "<h1>400 Bad Request (cannot parse multipart)</h1><a href=\"/\">Voltar</a>";
         res.headers["Content-Length"] = Utils::toString(res.body.size());
         return res;
     }

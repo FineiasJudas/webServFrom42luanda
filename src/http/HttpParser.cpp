@@ -85,7 +85,10 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
     {
         body_len = (size_t)atoi(req.headers["Content-Length"].c_str());
         if (body_len > max_body_size)
-            throw std::runtime_error("Body too large");
+        {
+            req.too_large_body = true;
+            return true; // parsed headers ok, body too large
+        }
     }
 
     size_t total_len = header_end + 4 + body_len;
