@@ -129,7 +129,7 @@ void MasterServer::handleRead(int clientFd)
         closeConnection(clientFd);
         return ;
     }
-    // 🔁 1) Ler até EAGAIN (non-blocking)
+    // 📨 1) LER DADOS DO SOCKET
     while (true)
     {
         n = conn->readFromFd(buf, sizeof(buf));
@@ -169,7 +169,9 @@ void MasterServer::handleRead(int clientFd)
 
             conn->getOutputBuffer().append(res.toString());
             poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-            return ;
+            Logger::log(Logger::ERROR, "Status "
+                  + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
+            break ;
         }
         if (req.too_large_body)
         {
@@ -182,7 +184,9 @@ void MasterServer::handleRead(int clientFd)
 
             conn->getOutputBuffer().append(res.toString());
             poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-            return ;
+            Logger::log(Logger::ERROR, "Status "
+                  + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
+            break ;
         }
 
         // Verificar o Keep-alive / Close
@@ -224,7 +228,7 @@ void MasterServer::handleRead(int clientFd)
                   + Utils::toString(conn_fd));*/
 }
 
-void MasterServer::handleWrite(int clientFd)
+void    MasterServer::handleWrite(int clientFd)
 {
     Connection  *conn = connections[clientFd];
     if (!conn)
