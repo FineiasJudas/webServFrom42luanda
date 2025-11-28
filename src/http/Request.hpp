@@ -14,7 +14,7 @@ struct  Request
     std::string     body;
 
     std::string path;   // apenas /delete-file
-    std::map<std::string, std::string> query; // parâmetros da query-string
+    std::map<std::string, std::string>  query; // parâmetros da query-string
     Request()
         : header_end(0), too_large_body(false) {}
 };

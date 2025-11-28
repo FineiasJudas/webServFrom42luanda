@@ -6,7 +6,7 @@
 class   Buffer
 {
     private:
-        std::vector<char> contentData;
+        std::vector<char>   contentData;
 
     public:
         void    append(const char *src, size_t len);

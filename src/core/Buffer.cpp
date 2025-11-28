@@ -7,9 +7,12 @@ void    Buffer::append(const char *src, size_t len)
     contentData.insert(contentData.end(), src, src + len);
 }
 
-void    Buffer::append(const std::string &str) { append(str.c_str(), str.size()); }
+void    Buffer::append(const std::string &str)
+{
+    append(str.c_str(), str.size());
+}
 
-const std::vector<char> &Buffer::getData() const { return (contentData); }
+const std::vector<char> &Buffer::getData() const{ return (contentData); }
 
 char    *Buffer::data() { return contentData.empty() ? NULL : &contentData[0]; }
 

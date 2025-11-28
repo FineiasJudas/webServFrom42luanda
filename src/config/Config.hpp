@@ -3,17 +3,18 @@
 
 #include "../../includes/Headers.hpp"
 
-struct LocationConfig
+struct  LocationConfig
 {
-    std::string path;
-    std::string root;
+    std::string     path;
+    std::string     root;
+    std::string     cgi_path;
+    std::string     upload_dir;
+    std::string     cgi_extension;
     std::vector<std::string>    methods;
+
     bool    directory_listing;
-    std::string cgi_path;
-    std::string upload_dir;
-    std::string cgi_extension;
-    bool    auto_index_set;       // novo
-    bool    auto_index;           // novo
+    bool    auto_index_set;
+    bool    auto_index;
 
     LocationConfig()
         : directory_listing(false),
@@ -27,16 +28,16 @@ struct ServerConfig
     std::vector<std::string>    listen;
     std::vector<std::string>    server_names;
     std::map<int, std::string>  error_pages;
-    size_t  max_body_size;
     std::vector<LocationConfig> locations;
-    std::string root;                            // root padrão do server
+    size_t      max_body_size;
+    std::string     root;
 
-    bool    auto_index_set;       // novo
-    bool    auto_index;           // novo
+    bool    auto_index_set;
+    bool    auto_index;
 
     ServerConfig()
         : max_body_size(1024 * 1024),
-            root("./examples/www"),
+          root("./examples/www"),
           auto_index_set(false),
           auto_index(false)
     {}

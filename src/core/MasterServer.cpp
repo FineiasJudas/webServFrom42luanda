@@ -26,7 +26,7 @@ MasterServer::~MasterServer()
 
 void    MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
 {
-    std::set<int> createdPorts; // evitar duplicar sockets para mesma porta
+    std::set<int>   createdPorts; // evitar duplicar sockets para mesma porta
 
     for (size_t i = 0; i < servers.size(); ++i)
     {
@@ -81,22 +81,18 @@ void MasterServer::run()
 
             if (isListen)
                 handleAccept(fd);
-
             else if (ev & EPOLLIN)
                 handleRead(fd);
-
             else if (ev & EPOLLOUT)
                 handleWrite(fd);
-
             else if (ev & (EPOLLHUP | EPOLLERR))
                 closeConnection(fd);
         }
-
         checkWriteTimeouts();
     }
 }
 
-void MasterServer::handleAccept(int listenFd)
+void    MasterServer::handleAccept(int listenFd)
 {
     int     flags;
     int     client_fd;
@@ -118,7 +114,7 @@ void MasterServer::handleAccept(int listenFd)
     Logger::log(Logger::INFO, "Nova conexão: FD " + Utils::toString(client_fd));
 }
 
-void MasterServer::handleRead(int clientFd)
+void    MasterServer::handleRead(int clientFd)
 {
     ssize_t     n;
     char    buf[8192];
@@ -256,7 +252,7 @@ void    MasterServer::handleWrite(int clientFd)
         poller.modifyFd(clientFd, EPOLLOUT | EPOLLET); // esperar próxima request (keep-alive)*/
 }
 
-void MasterServer::closeConnection(int clientFd)
+void    MasterServer::closeConnection(int clientFd)
 {
     poller.removeFd(clientFd);
     if (connections.count(clientFd))
@@ -268,7 +264,7 @@ void MasterServer::closeConnection(int clientFd)
     Logger::log(Logger::WARN, "Conexão fechada FD " + Utils::toString(clientFd));
 }
 
-void MasterServer::checkWriteTimeouts()
+void    MasterServer::checkWriteTimeouts()
 {
     long    now = time(NULL);
 
@@ -277,7 +273,7 @@ void MasterServer::checkWriteTimeouts()
     {
         Connection *c = it->second;
 
-        long idle = now - c->last_activity_time;
+        long    idle = now - c->last_activity_time;
 
         if (!c->getInputBuffer().empty() && idle > read_timeout)
         {

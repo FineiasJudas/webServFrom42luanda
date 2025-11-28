@@ -130,7 +130,7 @@ bool    extractMultipartFile(const std::string &body,
 static Response notFoundResponse(const ServerConfig &config)
 {
     Response    res;
-    std::string errorPath;
+    std::string     errorPath;
 
     if (config.error_pages.count(404))
         errorPath = config.error_pages.find(404)->second;
@@ -362,7 +362,7 @@ Response notAloweMethodResponse(const ServerConfig &config)
 Response methodPostMultipart(const Request &req,
                              const std::string &uploadDir)
 {
-    Response res;
+    Response    res;
     std::string filename, filedata;
 
     std::string boundary = getBoundary(req.headers.at("Content-Type"));

@@ -1,17 +1,15 @@
 #include "ConfigParser.hpp"
 
-/*static  std::string stripComments(const std::string &line)
+static  std::string stripComments(const std::string &line)
 {
     size_t  pos = line.find('#');
 
     if (pos == std::string::npos)
         return (line);
     return (line.substr(0, pos));
-}*/
+}
 
-// =======================
 // TRIM
-// =======================
 std::string ConfigParser::trim(const std::string &s)
 {
     size_t  start = s.find_first_not_of(" \t\r\n");
@@ -22,15 +20,14 @@ std::string ConfigParser::trim(const std::string &s)
     return s.substr(start, end - start + 1);
 }
 
-// =======================
 // LOCATION BLOCK
-// =======================
 void ConfigParser::parseLocationBlock(std::ifstream &file, LocationConfig &loc)
 {
     std::string line;
 
     while (std::getline(file, line))
     {
+        line = stripComments(line);
         line = trim(line);
         if (line.empty())
             continue ;
@@ -72,15 +69,14 @@ void ConfigParser::parseLocationBlock(std::ifstream &file, LocationConfig &loc)
     }
 }
 
-// =======================
 // SERVER BLOCK
-// =======================
 void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server)
 {
     std::string     line;
 
     while (std::getline(file, line))
     {
+        line = stripComments(line);
         line = trim(line);
         if (line.empty())
             continue ;
@@ -146,9 +142,7 @@ void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server
     }
 }
 
-// =======================
 // MAIN PARSING FUNCTION
-// =======================
 Config  ConfigParser::parseFile(const std::string &filename)
 {
     Config  conf;
@@ -163,6 +157,7 @@ Config  ConfigParser::parseFile(const std::string &filename)
     std::string     line;
     while (std::getline(file, line))
     {
+        line = stripComments(line);
         line = trim(line);
         if (line.empty())
             continue ;
@@ -172,6 +167,7 @@ Config  ConfigParser::parseFile(const std::string &filename)
             // Skip '{'
             while (std::getline(file, line))
             {
+                line = stripComments(line);
                 line = trim(line);
                 if (line == "{")
                     break ;

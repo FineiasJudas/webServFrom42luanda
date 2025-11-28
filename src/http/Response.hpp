@@ -33,7 +33,8 @@ struct  Response
 
     std::string toString() const
     {
-        std::ostringstream oss;
+        std::ostringstream  oss;
+
         oss << "HTTP/1.1 " << Utils::toString(status) << " " << reasonPhrase(status) << "\r\n";
         for (std::map<std::string,std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
             oss << it->first << ": " << it->second << "\r\n";
