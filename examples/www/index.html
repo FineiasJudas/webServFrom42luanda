@@ -1,312 +1,688 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebServ</title>
-  <style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serviços Web - 42</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/carbon-components/10.58.12/css/carbon-components.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    :root
-    {
-      --cor-primaria: #4f46e5;
-      --cor-fundo: #0e1529;
-      --cor-texto: #e5e7eb;
-      --cor-texto-sec: #cbd5e1;
-      --bordas: rgba(255,255,255,0.1);
-    }
+        body {
+            font-family: 'IBM Plex Sans', sans-serif;
+            background-color: #f4f4f4;
+            color: #161616;
+        }
 
-    *
-    {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+        .header {
+            background: linear-gradient(135deg, #0f62fe 0%, #0043ce 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
 
-    body
-    {
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-      background: #f3f4f6;
-      color: #111;
-      line-height: 1.6;
-    }
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
 
-    .navbar {
-      background: var(--cor-fundo);
-      color: #fff;
-      border-bottom: 1px solid var(--bordas);
-    }
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.95;
+        }
 
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 0 1rem;
-    }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
 
-    .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 70px;
-    }
+        .main-content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
 
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      text-decoration: none;
-      color: #fff;
-      font-weight: 700;
-      font-size: 25px;
-    }
+        .services-sidebar {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            height: fit-content;
+            position: sticky;
+            top: 2rem;
+        }
 
-    .menu
-    {
-      display: flex;
-      list-style: none;
-      gap: 1rem;
-    }
+        .services-sidebar h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #161616;
+            border-bottom: 2px solid #0f62fe;
+            padding-bottom: 0.5rem;
+        }
 
-    .menu a
-    {
-      color: var(--cor-texto);
-      text-decoration: none;
-      font-size: 18px;
-      padding: 0.5rem 0.75rem;
-      border-radius: 6px;
-    }
+        .service-item {
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            background: #f4f4f4;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
 
-    .menu a:hover
-    {
-      background: rgba(255,255,255,0.08);
-    }
+        .service-item:hover {
+            background: #e8e8e8;
+            border-left-color: #0f62fe;
+            transform: translateX(4px);
+        }
 
-    .menu a.active
-    {
-      background: rgba(79,70,229,0.25);
-      color: #fff;
-      border: 1px solid rgba(99,102,241,0.6);
-    }
+        .service-item.active {
+            background: #e0e8ff;
+            border-left-color: #0f62fe;
+            font-weight: 600;
+        }
 
-    main
-    {
-      padding: 2rem 1rem;
-    }
+        .service-item h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+            color: #161616;
+        }
 
-    .hero
-    {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 2rem;
-      align-items: center;
-      justify-content: center;
-      margin-top: 35px;
-      margin-bottom: 30px;
-    }
+        .service-item p {
+            font-size: 0.875rem;
+            color: #525252;
+        }
 
-    .hero
-    {
-      max-width: 100%;
-      height: auto;
-      border-radius: 8px;
-    }
+        .service-details {
+            background: white;
+            border-radius: 8px;
+            padding: 2.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            min-height: 500px;
+        }
 
-    .hero-text
-    {
-      max-width: 500px;
-      margin-top: 100px;
-      margin-bottom: 150px;
-    }
+        .service-details h2 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #0f62fe;
+        }
 
-    .grid
-    {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
-      margin-top: 30px;
-    }
+        .service-badge {
+            display: inline-block;
+            background: #0f62fe;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            margin-bottom: 1.5rem;
+        }
 
-    img
-    {
-        width: 400px;
-        height: 350px
-    }
+        .service-description {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            color: #393939;
+            margin-bottom: 2rem;
+        }
 
-    .item
-    {
-      background-color: #272d3d;
-      color: var(--cor-texto);
-      padding: 40px 25px;
-      border-radius: 2px;
-    }
+        .service-section {
+            margin-bottom: 2rem;
+        }
 
-    .item:hover
-    {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
-    }
+        .service-section h3 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #161616;
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 0.5rem;
+        }
 
-    .item h3
-    {
-      margin-bottom: 10px;
-      color: var(--cor-primaria);
-    }
+        .service-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
 
-    .foot
-    {
-        width: 100%;
-        height: 120px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        text-align: center;
-        margin-top: 150px;
-        background: var(--cor-fundo);
-        color: var(--cor-texto);
-        gap: 8px;
-    }
+        .service-section li {
+            padding: 0.75rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            color: #525252;
+            line-height: 1.6;
+        }
 
-    .last
-    {
-        display: flex;
-        margin-top: 150px;
-        justify-content: center;
-        flex-direction: row;
-        gap: 50px;
-        width: 100%;
-    }
+        .service-section li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #0f62fe;
+            font-weight: bold;
+        }
 
+        .example-box {
+            background: #f4f4f4;
+            border-left: 4px solid #0f62fe;
+            padding: 1.5rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.9rem;
+        }
 
-    @media (max-width: 768px) {
-      .nav
-      {
-        flex-direction: column;
-        height: auto;
-        padding: 1rem 0;
-      }
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
 
-      .menu
-      {
-        margin-top: 20px;
-        flex-direction: column;
-        align-items: center;
-      }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
 
-      .hero
-      {
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-      }
-      
-      img
-      {
-        width: 300px;
-        height: 250px
-      }
-    }
-  </style>
+        .btn-primary {
+            background: #0f62fe;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0043ce;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #0f62fe;
+            border: 2px solid #0f62fe;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e8ff;
+        }
+
+        .footer {
+            background: #262626;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 4rem;
+        }
+
+        .footer p {
+            opacity: 0.8;
+        }
+
+        /* Tablet (768px - 1024px) */
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 300px 1fr;
+                gap: 1.5rem;
+            }
+
+            .services-sidebar {
+                padding: 1.25rem;
+            }
+
+            .service-details {
+                padding: 2rem;
+            }
+
+            .header h1 {
+                font-size: 2.25rem;
+            }
+
+            .service-details h2 {
+                font-size: 1.75rem;
+            }
+        }
+
+        /* Mobile Landscape / Tablet Portrait (481px - 768px) */
+        @media (max-width: 768px) {
+            .header {
+                padding: 2rem 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.85rem;
+            }
+
+            .header p {
+                font-size: 1rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .services-sidebar {
+                position: static;
+                padding: 1.25rem;
+            }
+
+            .services-sidebar h2 {
+                font-size: 1.35rem;
+            }
+
+            .service-item {
+                padding: 0.875rem;
+            }
+
+            .service-item h3 {
+                font-size: 1rem;
+            }
+
+            .service-details {
+                padding: 1.75rem;
+            }
+
+            .service-details h2 {
+                font-size: 1.65rem;
+            }
+
+            .service-section h3 {
+                font-size: 1.2rem;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
+
+        /* Mobile Portrait (320px - 480px) */
+        @media (max-width: 480px) {
+            .header {
+                padding: 1.5rem 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+                margin-bottom: 0.35rem;
+            }
+
+            .header p {
+                font-size: 0.9rem;
+            }
+
+            .container {
+                padding: 0.75rem;
+            }
+
+            .main-content {
+                gap: 1rem;
+            }
+
+            .services-sidebar {
+                padding: 1rem;
+                border-radius: 6px;
+            }
+
+            .services-sidebar h2 {
+                font-size: 1.2rem;
+                margin-bottom: 1rem;
+            }
+
+            .service-item {
+                padding: 0.75rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .service-item h3 {
+                font-size: 0.95rem;
+            }
+
+            .service-item p {
+                font-size: 0.8rem;
+            }
+
+            .service-details {
+                padding: 1.25rem;
+                border-radius: 6px;
+                min-height: auto;
+            }
+
+            .service-details h2 {
+                font-size: 1.4rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .service-badge {
+                font-size: 0.8rem;
+                padding: 0.2rem 0.6rem;
+                margin-bottom: 1rem;
+            }
+
+            .service-description {
+                font-size: 1rem;
+                margin-bottom: 1.5rem;
+                line-height: 1.6;
+            }
+
+            .service-section {
+                margin-bottom: 1.5rem;
+            }
+
+            .service-section h3 {
+                font-size: 1.1rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .service-section li {
+                padding: 0.5rem 0;
+                padding-left: 1.25rem;
+                font-size: 0.9rem;
+            }
+
+            .example-box {
+                padding: 1rem;
+                font-size: 0.8rem;
+                word-break: break-all;
+            }
+
+            .action-buttons {
+                margin-top: 1.5rem;
+                gap: 0.75rem;
+            }
+
+            .btn {
+                padding: 0.65rem 1.25rem;
+                font-size: 0.95rem;
+            }
+
+            .footer {
+                padding: 1.5rem 1rem;
+                margin-top: 2rem;
+            }
+
+            .footer p {
+                font-size: 0.875rem;
+            }
+        }
+
+        /* Extra Small Mobile (< 320px) */
+        @media (max-width: 320px) {
+            .header h1 {
+                font-size: 1.3rem;
+            }
+
+            .header p {
+                font-size: 0.85rem;
+            }
+
+            .service-details h2 {
+                font-size: 1.25rem;
+            }
+
+            .service-section h3 {
+                font-size: 1rem;
+            }
+
+            .btn {
+                padding: 0.6rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
 </head>
 <body>
-  <header class="navbar">
-    <div class="container nav">
-      <a href="./index.html" class="logo">
-          <img src="./3u-server-svgrepo-com.png" alt="svServer" style="width: 32px; height: 28px;">
-        <span>WebServ</span>
-      </a>
-      <nav aria-label="Menu principal">
-        <ul class="menu">
-          <li id="inicio"><a href="#" class="active">Início</a></li>
-          <li id="serviços"><a href="#">Serviços</a></li>
-          <li id="uploads"><a href="#">Uploads</a></li>
-          <li id="sobre"><a href="#">Sobre</a></li>
-          <li id="contato"><a href="#">Contato</a></li>
-        </ul>
-      </nav>
+    <header class="header">
+        <h1>Serviços Web - 42</h1>
+        <p>Apresentação dos serviços disponíveis no nosso webserv</p>
+    </header>
+
+    <div class="container">
+        <div class="main-content">
+            <aside class="services-sidebar">
+                <h2>Serviços Disponíveis</h2>
+                <div id="servicesList"></div>
+            </aside>
+
+            <main class="service-details" id="serviceDetails">
+                <h2>Selecione um serviço</h2>
+                <p class="service-description">Escolha um serviço na lista ao lado para ver os detalhes completos.</p>
+            </main>
+        </div>
     </div>
-  </header>
 
-  <main class="container">
-    <section class="hero">
-        <div style="width: 50%;">
-            <img src="./serverImg.png" alt="Imagem ilustrativa de servidor WebServ" />
-        </div>
-      <div class="hero-text">
-        <h1 style="line-height: 1.1; font-size: 30px;">Bem-vindo ao WebServ, um servidor HTTP completo em C++98</h1>
-        <p style="width: 80%; font-size: 20px; line-height: 1.3; margin-top: 10px;">
-            Este servidor foi desenvolvido 100% em C++ como parte do currículo da escola 42, focando em performance, 
-            modularidade e robustez. Este é um servidor HTTP em C++98, não-bloqueante, capaz de servir websites estáticos, 
-            processar CGI e gerenciar múltiplas conexões simultâneas.</p>
-      </div>
-    </section>
+    <footer class="footer">
+        <p>© 2024 42 Webserv - Todos os direitos reservados</p>
+    </footer>
 
-    <section>
-      <h1 style="margin-bottom: 20px;">O que é um site web?</h1>
-      <div class="grid">
-        <div class="item">
-          <h3>Estrutura</h3>
-          <p>Um site é composto por páginas interligadas que compartilham um propósito comum e navegação fluida.</p>
-        </div>
-        <div class="item">
-          <h3>Conteúdo</h3>
-          <p>Textos, imagens, vídeos e interações formam a base de um site moderno e atrativo.</p>
-        </div>
-        <div class="item">
-          <h3>Domínio</h3>
-          <p>O endereço único (como webserv.com) permite acesso global e identificação na internet.</p>
-        </div>
-        <div class="item">
-          <h3>Design</h3>
-          <p>Uma boa interface garante usabilidade, acessibilidade e experiência positiva ao usuário.</p>
-        </div>
-        <div class="item">
-          <h3>Tecnologia</h3>
-          <p>Sites podem ser estáticos ou dinâmicos, com backend em linguagens como C++, Python ou Node.js.</p>
-        </div>
-        <div class="item">
-          <h3>Interatividade</h3>
-          <p>Formulários, uploads, animações e feedback visual tornam o site mais envolvente.</p>
-        </div>
-      </div>
-    </section>
+    <script>
+        const services = [
+            {
+                id: 'cgi',
+                name: 'CGI (Common Gateway Interface)',
+                type: 'Dinâmico',
+                shortDesc: 'Execução de scripts dinâmicos',
+                description: 'O CGI permite que o webserver execute scripts e programas externos para gerar conteúdo dinâmico. É uma das tecnologias mais fundamentais para criar páginas web interativas.',
+                purpose: 'Processar formulários, gerar conteúdo personalizado, interagir com bases de dados e executar lógica de negócio no servidor.',
+                features: [
+                    'Suporte para múltiplas linguagens (Python, Perl, Bash, C++)',
+                    'Processamento de dados de formulários via GET e POST',
+                    'Geração dinâmica de HTML, JSON e outros formatos',
+                    'Acesso a variáveis de ambiente do servidor',
+                    'Integração com sistemas externos'
+                ],
+                examples: [
+                    'Formulário de contato que envia emails',
+                    'Sistema de login e autenticação',
+                    'Calculadora online',
+                    'Gerador de relatórios personalizados'
+                ],
+                testUrl: '/cgi-bin/test.py'
+            },
+            {
+                id: 'static',
+                name: 'HTTP Estático',
+                type: 'Estático',
+                shortDesc: 'Servir arquivos estáticos',
+                description: 'O serviço HTTP estático entrega arquivos diretamente do sistema de ficheiros sem processamento adicional. É o método mais rápido e eficiente para servir conteúdo que não muda.',
+                purpose: 'Fornecer HTML, CSS, JavaScript, imagens e outros recursos estáticos de forma rápida e eficiente.',
+                features: [
+                    'Entrega de alta performance com cache',
+                    'Suporte para todos os tipos MIME comuns',
+                    'Listagem de diretórios configurável',
+                    'Compressão gzip para reduzir bandwidth',
+                    'Headers de cache e ETags'
+                ],
+                examples: [
+                    'Páginas HTML estáticas',
+                    'Folhas de estilo CSS',
+                    'Bibliotecas JavaScript',
+                    'Imagens, vídeos e documentos PDF'
+                ],
+                testUrl: '/static/index.html'
+            },
+            {
+                id: 'api',
+                name: 'API REST',
+                type: 'API',
+                shortDesc: 'Interface de programação REST',
+                description: 'A API REST fornece endpoints HTTP para que aplicações cliente possam interagir com o servidor através de operações CRUD padronizadas usando JSON.',
+                purpose: 'Permitir que aplicações web e mobile consumam e manipulem dados através de uma interface bem definida e padronizada.',
+                features: [
+                    'Endpoints RESTful (GET, POST, PUT, DELETE)',
+                    'Formato de dados em JSON',
+                    'Autenticação via tokens',
+                    'Códigos de status HTTP apropriados',
+                    'Versionamento de API'
+                ],
+                examples: [
+                    'GET /api/users - Listar utilizadores',
+                    'POST /api/users - Criar novo utilizador',
+                    'PUT /api/users/123 - Atualizar utilizador',
+                    'DELETE /api/users/123 - Remover utilizador'
+                ],
+                testUrl: '/api/v1/status'
+            },
+            {
+                id: 'upload',
+                name: 'Upload de Ficheiros',
+                type: 'Funcionalidade',
+                shortDesc: 'Sistema de upload e gestão',
+                description: 'Permite que utilizadores façam upload de ficheiros para o servidor com validação, processamento e armazenamento seguro.',
+                purpose: 'Aceitar e processar ficheiros enviados pelos utilizadores, com controlo de tamanho, tipo e segurança.',
+                features: [
+                    'Upload multipart/form-data',
+                    'Validação de tipo e tamanho de ficheiro',
+                    'Proteção contra ficheiros maliciosos',
+                    'Geração de nomes únicos',
+                    'Barra de progresso para uploads grandes'
+                ],
+                examples: [
+                    'Upload de imagens de perfil',
+                    'Envio de documentos',
+                    'Upload de avatares',
+                    'Submissão de ficheiros CSV para importação'
+                ],
+                testUrl: '/upload'
+            },
+            {
+                id: 'session',
+                name: 'Gestão de Sessões',
+                type: 'Segurança',
+                shortDesc: 'Sistema de sessões e cookies',
+                description: 'Implementa gestão de sessões usando cookies para manter o estado entre múltiplos pedidos HTTP de um mesmo utilizador.',
+                purpose: 'Manter utilizadores autenticados e armazenar informações temporárias durante a navegação.',
+                features: [
+                    'Cookies seguros com HTTPOnly e Secure flags',
+                    'Tokens de sessão aleatórios e únicos',
+                    'Expiração automática de sessões',
+                    'Armazenamento de dados de sessão',
+                    'Proteção contra session hijacking'
+                ],
+                examples: [
+                    'Sistema de login persistente',
+                    'Carrinho de compras',
+                    'Preferências do utilizador',
+                    'Dados temporários entre páginas'
+                ],
+                testUrl: '/session/login'
+            },
+            {
+                id: 'redirect',
+                name: 'Redirecionamentos',
+                type: 'Configuração',
+                shortDesc: 'URLs e redirecionamentos',
+                description: 'Configuração de redirecionamentos HTTP automáticos para encaminhar pedidos de um URL para outro, útil para reestruturação de sites e SEO.',
+                purpose: 'Redirecionar URLs antigas para novas localizações e criar atalhos para recursos frequentemente acedidos.',
+                features: [
+                    'Redirecionamentos 301 (permanente)',
+                    'Redirecionamentos 302 (temporário)',
+                    'Suporte para expressões regulares',
+                    'Redirecionamentos em cadeia',
+                    'Preservação de query strings'
+                ],
+                examples: [
+                    '/old-page → /new-page (301)',
+                    '/docs → /documentation (302)',
+                    '/pt/* → /pt-PT/* (pattern)',
+                    'http:// → https:// (upgrade de segurança)'
+                ],
+                testUrl: '/redirect-test'
+            }
+        ];
 
-    <section class="last">
-        <svg width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-label="Google-inspired icon">
-            <defs>
-                <linearGradient id="ggrad" x1="0" x2="1" y1="0" y2="1">
-                <stop offset="0%" stop-color="#4285F4"/>
-                <stop offset="50%" stop-color="#34A853"/>
-                <stop offset="100%" stop-color="#FBBC05"/>
-                </linearGradient>
-            </defs>
-            <circle cx="24" cy="24" r="22" fill="url(#ggrad)" stroke="#fff" stroke-width="2"/>
-            <path d="M16 28h6v6h-6z" fill="#fff" opacity="0.85"/>
-            <path d="M26 16h6v6h-6z" fill="#fff" opacity="0.85"/>
-        </svg>
+        let activeService = null;
 
-        <svg width="48" height="48" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-label="GitHub-inspired icon" fill="currentColor">
-            <path d="M12 .5a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.04c-3.34.73-4.04-1.44-4.04-1.44-.55-1.38-1.34-1.75-1.34-1.75-1.09-.75.08-.74.08-.74 1.2.08 1.83 1.24 1.83 1.24 1.07 1.83 2.8 1.3 3.49.99.1-.77.42-1.3.76-1.6-2.66-.3-5.46-1.33-5.46-5.94 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.17 0 0 1 .32 3.3 1.23A11.5 11.5 0 0 1 12 6.8c.99-.01 1.99.14 2.92.42 2.3-.91 3.3-1.23 3.3-1.23.66 1.65.24 2.87.12 3.17.77.84 1.23 1.91 1.23 3.22 0 4.62-2.8 5.63-5.47 5.93.43.37.82 1.1.82 2.22v3.29c0 .32.22.69.83.58A12 12 0 0 0 12 .5z"/>
-        </svg>
+        function renderServicesList() {
+            const list = document.getElementById('servicesList');
+            list.innerHTML = services.map(service => `
+                <div class="service-item" onclick="showServiceDetails('${service.id}')">
+                    <h3>${service.name}</h3>
+                    <p>${service.shortDesc}</p>
+                </div>
+            `).join('');
+        }
 
-        <svg width="48" height="48" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-label="Nginx-inspired icon" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M32 6l22 8v14c0 7-4 12-10 16l-12 6-12-6C14 40 10 35 10 28V14L32 6z" fill="none" stroke="currentColor" />
-            <path d="M24 26h16v10H24z" fill="currentColor"/>
-            <path d="M28 22h8" stroke="white" stroke-width="2" />
-        </svg>
+        function showServiceDetails(serviceId) {
+            const service = services.find(s => s.id === serviceId);
+            if (!service) return;
 
-        <svg width="48" height="48" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-label="Docker-inspired icon" fill="currentColor">
-            <rect x="6" y="20" width="52" height="28" rx="6" ry="6" fill="currentColor"/>
-            <circle cx="22" cy="34" r="4" fill="#fff"/>
-            <circle cx="32" cy="34" r="4" fill="#fff"/>
-            <circle cx="42" cy="34" r="4" fill="#fff"/>
-            <path d="M6 20h52" stroke="#fff" stroke-width="2" />
-            <path d="M14 18h6" stroke="#fff" stroke-width="2" />
-        </svg>
-    </section>
-  </main>
-  <footer class="foot">
-        <p>All rights reserved.</p>
-        <p>© 2025 WenServ Team</p>
-  </footer>
-  <script src="./index.js"></script>
+            activeService = serviceId;
+
+            document.querySelectorAll('.service-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+
+            const details = document.getElementById('serviceDetails');
+            details.innerHTML = `
+                <h2>${service.name}</h2>
+                <span class="service-badge">${service.type}</span>
+                
+                <p class="service-description">${service.description}</p>
+
+                <div class="service-section">
+                    <h3>Propósito</h3>
+                    <p>${service.purpose}</p>
+                </div>
+
+                <div class="service-section">
+                    <h3>Funcionalidades</h3>
+                    <ul>
+                        ${service.features.map(f => `<li>${f}</li>`).join('')}
+                    </ul>
+                </div>
+
+                <div class="service-section">
+                    <h3>Exemplos de Uso</h3>
+                    <ul>
+                        ${service.examples.map(e => `<li>${e}</li>`).join('')}
+                    </ul>
+                </div>
+
+                <div class="example-box">
+                    <strong>URL de Teste:</strong> ${service.testUrl}
+                </div>
+
+                <div class="action-buttons">
+                    <a href="${service.testUrl}" class="btn btn-primary" target="_blank">Testar Serviço</a>
+                    <button class="btn btn-secondary" onclick="copyUrl('${service.testUrl}')">Copiar URL</button>
+                </div>
+            `;
+
+            // Scroll suave para os detalhes do serviço em mobile/tablet
+            if (window.innerWidth <= 768) {
+                setTimeout(() => {
+                    details.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start'
+                    });
+                }, 100);
+            }
+        }
+
+        function copyUrl(url) {
+            const fullUrl = window.location.origin + url;
+            navigator.clipboard.writeText(fullUrl).then(() => {
+                alert('URL copiado para a área de transferência!');
+            });
+        }
+
+        renderServicesList();
+        showServiceDetails('cgi');
+    </script>
 </body>
 </html>

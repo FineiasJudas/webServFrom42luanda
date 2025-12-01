@@ -1,8 +1,9 @@
 #include "ConfigParser.hpp"
+#include "./../utils/keywords.hpp"
 
 static  std::string stripComments(const std::string &line)
 {
-    size_t  pos = line.find('#');
+    size_t  pos = line.find(KW::COMMENT); //'#');
 
     if (pos == std::string::npos)
         return (line);
@@ -31,36 +32,36 @@ void ConfigParser::parseLocationBlock(std::ifstream &file, LocationConfig &loc)
         line = trim(line);
         if (line.empty())
             continue ;
-        if (line == "}")
+        if (line == KW::BLOCK_END) //if (line == "}")
             break ;
 
         std::istringstream  iss(line);
         std::string key;
 
         iss >> key;
-        if (key == "root")
+        if (key == KW::ROOT) //if (key == "root")
             iss >> loc.root;
-        else if (key == "methods")
+        else if (key == KW::METHODS) //else if (key == "methods")
         {
             std::string m;
             while (iss >> m) loc.methods.push_back(m);
         }
-        else if (key == "directory_listing")
+        else if (key == KW::DIRECTORY_LISTING) //else if (key == "directory_listing")
         {
             std::string v; iss >> v;
-            loc.directory_listing = (v == "on");
+            loc.directory_listing = (v == KW::ON); //(v == "on");
         }
-        else if (key == "auto_index")
+        else if (key == KW::AUTO_INDEX) //else if (key == "auto_index")
         {
             std::string v; iss >> v;
-            loc.auto_index = (v == "on");
+            loc.auto_index = (v == KW::ON); //(v == "on");
             loc.auto_index_set = true;
         }
-        else if (key == "upload_dir")
+        else if (key == KW::UPLOAD_DIR) //else if (key == "upload_dir")
             iss >> loc.upload_dir;
-        else if (key == "cgi_extension")
+        else if (key == KW::CGI_EXTENSION) //else if (key == "cgi_extension")
             iss >> loc.cgi_extension;
-        else if (key == "cgi_path")
+        else if (key == KW::CGI_PATH) //else if (key == "cgi_path")
         {
             std::string v;
             iss >> v;
@@ -80,44 +81,44 @@ void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server
         line = trim(line);
         if (line.empty())
             continue ;
-        if (line == "}")
+        if (line == KW::BLOCK_END) //if (line == "}")
             break ;
 
         std::istringstream iss(line);
         std::string     key;
 
         iss >> key;
-        if (key == "listen")
+        if (key == KW::LISTEN) //if (key == "listen")
         {
             std::string v;
             while (iss >> v)
                 server.listen.push_back(v);
         }
-        else if (key == "server_name")
+        else if (key == KW::SERVER_NAME) //else if (key == "server_name")
         {
             std::string v;
             while (iss >> v)
                 server.server_names.push_back(v);
         }
-        else if (key == "auto_index")
+        else if (key == KW::AUTO_INDEX) //else if (key == "auto_index")
         {
             std::string v; iss >> v;
-            server.auto_index = (v == "on");
+            server.auto_index = (v == KW::ON); //(v == "on");
             server.auto_index_set = true;
         }
-        else if (key == "root")
+        else if (key == KW::ROOT) //else if (key == "root")
             // Agora root pertence ao ServerConfig
             iss >> server.root;
-        else if (key == "max_body_size")
+        else if (key == KW::MAX_BODY_SIZE) //else if (key == "max_body_size")
             iss >> server.max_body_size;
-        else if (key == "error_page")
+        else if (key == KW::ERROR_PAGE) //else if (key == "error_page")
         {
             int     code;
             std::string path;
             iss >> code >> path;
             server.error_pages[code] = path;
         }
-        else if (key == "location")
+        else if (key == KW::LOCATION) //else if (key == "location")
         {
             LocationConfig  loc;
             iss >> loc.path;
@@ -129,14 +130,14 @@ void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server
     // ===== GARANTI QUE "/" EXISTE COMO LOCATION DEFAULT =====
     bool    hasRootLocation = false;
     for (size_t i = 0; i < server.locations.size(); i++)
-        if (server.locations[i].path == "/")
+        if (server.locations[i].path == KW::ROOT_DEFAULT) //"/")
             hasRootLocation = true;
 
     if (!hasRootLocation)
     {
         LocationConfig  loc;
     
-        loc.path = "/";
+        loc.path = KW::ROOT_DEFAULT;// "/";
         loc.root = server.root; // root do servidor
         server.locations.push_back(loc);
     }
@@ -162,14 +163,14 @@ Config  ConfigParser::parseFile(const std::string &filename)
         if (line.empty())
             continue ;
 
-        if (line == "server")
+        if (line == KW::SERVER)
         {
             // Skip '{'
             while (std::getline(file, line))
             {
                 line = stripComments(line);
                 line = trim(line);
-                if (line == "{")
+                if (line == KW::BLOCK_START)
                     break ;
             }
 
