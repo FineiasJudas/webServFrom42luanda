@@ -2,6 +2,7 @@
 #define RESPONSE_HPP
 
 #include "../../includes/Headers.hpp"
+#include "../config/Config.hpp"
 #include "../utils/Utils.hpp"
 
 struct  Response

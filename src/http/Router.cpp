@@ -79,7 +79,6 @@ void    parseUri(Request &req)
     }
 }
 
-
 Response    handleUploadsList(const Request &req)
 {
     (void)req;
@@ -170,6 +169,20 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     // 1) Encontrar location
     const LocationConfig    &loc = findBestLocation(req.uri, config);
     Logger::log(Logger::INFO, "Rota encontrada: " + loc.path);
+
+    // 1.5) Check redirect
+    if (loc.redirect_code != 0)
+    {
+        Response    r;
+
+        r.status = loc.redirect_code;
+        r.headers["Location"] = loc.redirect_url;
+        r.body = "<h1>" + Utils::toString(loc.redirect_code) + 
+                " Redirect</h1><p> → " + loc.redirect_url + "</p>";
+        r.headers["Content-Length"] = Utils::toString(r.body.size());
+        r.headers["Content-Type"] = "text/html";
+        return r;
+    }
 
     // 2) Bloquear directory traversal
     if (req.uri.find("..") != std::string::npos)

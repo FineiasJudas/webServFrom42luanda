@@ -16,14 +16,18 @@ struct  LocationConfig
     bool    auto_index_set;
     bool    auto_index;
 
+    int redirect_code;         // ⬅ NOVO (301, 302, etc)
+    std::string redirect_url;  // ⬅ NOVO
+
     LocationConfig()
         : directory_listing(false),
           auto_index_set(false),
-          auto_index(false)
+          auto_index(false),
+          redirect_code(0)
     {}
 };
 
-struct ServerConfig
+struct  ServerConfig
 {
     std::vector<std::string>    listen;
     std::vector<std::string>    server_names;
@@ -35,12 +39,16 @@ struct ServerConfig
     bool    auto_index_set;
     bool    auto_index;
 
+    int     cgi_timeout;
+
+
     ServerConfig()
         : max_body_size(1024 * 1024),
-          root("./examples/www"),
-          auto_index_set(false),
-          auto_index(false)
-    {}
+        root("./examples/www"),
+        auto_index_set(false),
+        auto_index(false), 
+        cgi_timeout(3)
+          {}
 };
 
 class   Config

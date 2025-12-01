@@ -10,6 +10,7 @@ RM          = rm -f
 
 SRCS = \
     src/main.cpp \
+    src/core/Signal.cpp \
     src/core/Buffer.cpp \
     src/core/Connection.cpp \
     src/core/PollerEpoll.cpp \

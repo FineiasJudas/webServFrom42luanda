@@ -66,6 +66,15 @@ void ConfigParser::parseLocationBlock(std::ifstream &file, LocationConfig &loc)
             iss >> v;
             loc.cgi_path = v;
         }
+        else if (key == "return")
+        {
+            int code;
+            std::string url;
+            iss >> code >> url;
+
+            loc.redirect_code = code;
+            loc.redirect_url = url;
+        }
     }
 }
 
@@ -123,6 +132,11 @@ void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server
             iss >> loc.path;
             parseLocationBlock(file, loc);
             server.locations.push_back(loc);
+        }
+        else if (key == "cgi_timeout")
+        {
+            int v; iss >> v;
+            server.cgi_timeout = v;
         }
     }
 

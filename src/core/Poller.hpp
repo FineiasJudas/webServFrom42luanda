@@ -3,10 +3,21 @@
 
 #include "../../includes/Headers.hpp"
 
-class   Poller
+struct  PollEvent
+{
+    int     fd;
+    uint32_t    events;
+
+    bool    isReadable() const { return events & EPOLLIN; }
+    bool    isWritable() const { return events & EPOLLOUT; }
+    bool    isError() const    { return events & (EPOLLHUP | EPOLLERR); }
+};
+
+class Poller
 {
     private:
-        int     epoll_fd;
+        int epfd;
+        std::vector<struct epoll_event> eventBuffer;
 
     public:
         Poller();
@@ -15,8 +26,12 @@ class   Poller
         void    addFd(int fd, uint32_t events);
         void    modifyFd(int fd, uint32_t events);
         void    removeFd(int fd);
-        std::vector<struct epoll_event> wait(int timeout);
 
+        std::vector<PollEvent>  waitEvents(int timeout_ms);
+
+    private:
+        void    makeNonBlocking(int fd);
 };
 
 #endif
+

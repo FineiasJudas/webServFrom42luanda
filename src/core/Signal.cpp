@@ -1,0 +1,18 @@
+#include "Signal.hpp"
+#include <iostream>
+
+static void sigint_handler(int)
+{
+    g_running = false;
+    std::cout << "\n🛑 SIGINT recebido — encerrando servidor...\n";
+}
+
+void    setupSignalHandlers()
+{
+    struct sigaction    sa;
+    sa.sa_handler = sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    sigaction(SIGINT, &sa, NULL);
+}

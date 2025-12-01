@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Not Found Page</title>
+  <style>
+    :root
+    {
+      --cor-primaria: #4f46e5;
+      --cor-fundo: #0e1529;
+      --cor-texto: #e5e7eb;
+      --cor-texto-sec: #cbd5e1;
+      --bordas: rgba(255,255,255,0.1);
+    }
+
+    *
+    {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body
+    {
+      height: 100%;
+    }
+
+    body
+    {
+      display: flex;
+      flex-direction: column;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      background: #f3f4f6;
+      color: #111;
+      line-height: 1.6;
+    }
+
+    main
+    {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .foot {
+      width: 100%;
+      height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: var(--cor-fundo);
+      color: var(--cor-texto);
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="./error.png" alt="Page Not Found Img" style="width: 150px; height: 150px;">
+    <h1 style="font-size: 35px;">Page Not Found!</h1>
+  </main>
+
+  <footer class="foot">
+    <p>All rights reserved.</p>
+    <p>© 2025 WebServ Team</p>
+  </footer>
+</body>
+</html>

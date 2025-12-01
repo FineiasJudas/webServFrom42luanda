@@ -1,10 +1,12 @@
 #include "config/ConfigParser.hpp"
 #include "core/MasterServer.hpp"
 #include "utils/Logger.hpp"
+#include "core/Signal.hpp"
 #include <iostream>
 
 int main(int ac, char **av)
 {
+    setupSignalHandlers();
     if (ac != 2)
     {
         std::cerr << "Use: ./webserv <file.config>\n";

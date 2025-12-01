@@ -88,13 +88,11 @@ CgiResult CgiHandler::execute(const Request& req,
 {
     CgiResult result;
     result.exit_status = -1;
-    result.raw_output.clear();
+    result.raw_output = "";
 
-    // ============================
-    // 1) Verifica se o script existe
-    // ============================
+    // ------------------ SCRIPT EXISTS? ------------------
     struct stat st;
-    if (stat(script_path.c_str(), &st) < 0)
+    if (stat(script_path.c_str(), &st) != 0)
     {
         result.raw_output =
             "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
@@ -102,10 +100,8 @@ CgiResult CgiHandler::execute(const Request& req,
         return result;
     }
 
-    // ============================
-    // 2) Monta o interpretador correto
-    // ============================
-    std::string     interpreter;
+    // ------------------ INTERPRETER ---------------------
+    std::string interpreter;
     for (size_t i = 0; i < config.locations.size(); i++)
     {
         if (script_path.find(config.locations[i].root) == 0 &&
@@ -115,125 +111,166 @@ CgiResult CgiHandler::execute(const Request& req,
             break;
         }
     }
-    
+
     if (interpreter.empty())
     {
         result.raw_output =
             "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
-            "CGI interpreter not defined in config\n";
+            "CGI interpreter not defined\n";
         return result;
     }
 
-    // interpreter deve existir no SO
     if (access(interpreter.c_str(), X_OK) != 0)
     {
-        std::ostringstream ss;
-        ss << "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
-           << "CGI interpreter not executable: " << interpreter
-           << " (" << strerror(errno) << ")\n";
-        result.raw_output = ss.str();
+        result.raw_output =
+            "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
+            "Interpreter not executable\n";
         return result;
     }
 
-    // ============================
-    // 3) Monta o ENV
-    // ============================
+    // ------------------ BUILD ENV -----------------------
     std::vector<std::string> env_strings = buildEnv(req, script_path, config);
-
     std::vector<char*> envp;
-    for (size_t i = 0; i < env_strings.size(); ++i)
+    for (size_t i = 0; i < env_strings.size(); i++)
         envp.push_back(strdup(env_strings[i].c_str()));
     envp.push_back(NULL);
 
-    // ============================
-    // 4) Monta o ARGV
-    // ============================
-    std::vector<char*> argv;
-    argv.push_back(strdup(interpreter.c_str()));  // argv[0]
-    argv.push_back(strdup(script_path.c_str()));  // argv[1]
-    argv.push_back(NULL);
+    // ------------------ ARGV ----------------------------
+    std::vector<char*> argv_vec;
+    argv_vec.push_back(strdup(interpreter.c_str()));
+    argv_vec.push_back(strdup(script_path.c_str()));
+    argv_vec.push_back(NULL);
 
-    // ============================
-    // 5) Cria pipes STDIN / STDOUT
-    // ============================
     int stdin_pipe[2];
     int stdout_pipe[2];
 
+    bool early_error = false;
+    std::string early_error_response;
+
+    // -------------- CREATE PIPES ------------------------
     if (pipe(stdin_pipe) < 0 || pipe(stdout_pipe) < 0)
     {
-        result.raw_output =
+        early_error = true;
+        early_error_response =
             "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
-            "CGI pipe creation failed\n";
-        return result;
+            "Failed to create pipes\n";
     }
 
-    // ============================
-    // 6) Fork
-    // ============================
-    pid_t pid = fork();
-    if (pid < 0)
+    pid_t pid = -1;
+
+    if (!early_error)
     {
-        result.raw_output =
-            "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
-            "CGI fork failed\n";
-        return result;
+        // ------------------ FORK ------------------------
+        pid = fork();
+        if (pid < 0)
+        {
+            early_error = true;
+            early_error_response =
+                "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
+                "Fork failed\n";
+        }
     }
 
-    // ============================
-    // 7) Child Process
-    // ============================
-    if (pid == 0)
+    // ----------------------------------------------------
+    // CHILD PROCESS
+    // ----------------------------------------------------
+    if (!early_error && pid == 0)
     {
-        // → STDIN
         dup2(stdin_pipe[0], STDIN_FILENO);
-        // → STDOUT
         dup2(stdout_pipe[1], STDOUT_FILENO);
         dup2(stdout_pipe[1], STDERR_FILENO);
 
         close(stdin_pipe[1]);
         close(stdout_pipe[0]);
 
-        execve(interpreter.c_str(), argv.data(), envp.data());
-
-        _exit(127);  // exec falhou
+        execve(interpreter.c_str(), &argv_vec[0], &envp[0]);
+        _exit(127);
     }
 
-    // ============================
-    // 8) Parent Process
-    // ============================
-    close(stdin_pipe[0]);
-    close(stdout_pipe[1]);
+    // ----------------------------------------------------
+    // PARENT PROCESS
+    // ----------------------------------------------------
+    std::string output;
+    int status = 0;
+    bool finished = false;
+    bool timeout = false;
 
-    // envia body (POST)
-    write(stdin_pipe[1], req.body.c_str(), req.body.size());
-    close(stdin_pipe[1]);
+    if (!early_error)
+    {
+        close(stdin_pipe[0]);
+        close(stdout_pipe[1]);
 
-    // lê STDOUT do CGI
-    char buffer[4096];
-    std::ostringstream out;
-    ssize_t r;
+        write(stdin_pipe[1], req.body.c_str(), req.body.size());
+        close(stdin_pipe[1]);
 
-    while ((r = read(stdout_pipe[0], buffer, sizeof(buffer))) > 0)
-        out.write(buffer, r);
+        fcntl(stdout_pipe[0], F_SETFL, O_NONBLOCK);
 
-    close(stdout_pipe[0]);
+        time_t start_time = time(NULL);
+        char buffer[4096];
 
-    // espera processo
-    int status;
-    waitpid(pid, &status, 0);
+        while (!finished)
+        {
+            ssize_t r = read(stdout_pipe[0], buffer, sizeof(buffer));
+            if (r > 0)
+                output.append(buffer, r);
 
-    if (WIFEXITED(status))
-        result.exit_status = WEXITSTATUS(status);
+            pid_t w = waitpid(pid, &status, WNOHANG);
+
+            if (w == -1)
+                finished = true;
+            else if (w > 0)
+                finished = true;
+            else
+            {
+                if (config.cgi_timeout > 0 &&
+                    difftime(time(NULL), start_time) > config.cgi_timeout)
+                {
+                    kill(pid, SIGKILL);
+                    waitpid(pid, NULL, 0);
+                    timeout = true;
+                    finished = true;
+                }
+            }
+
+            usleep(10000);
+        }
+
+        close(stdout_pipe[0]);
+    }
+
+    // ----------------------------------------------------
+    // RETURN RESPONSE
+    // ----------------------------------------------------
+    if (early_error)
+    {
+        result.exit_status = 500;
+        result.raw_output = early_error_response;
+    }
+    else if (timeout)
+    {
+        result.exit_status = 504;
+        result.raw_output =
+            "Status: 504\r\nContent-Type: text/html\r\n\r\n"
+            "<h1>504 CGI Timeout</h1>";
+    }
     else
-        result.exit_status = -1;
+    {
+        if (WIFEXITED(status))
+            result.exit_status = WEXITSTATUS(status);
+        else
+            result.exit_status = -1;
 
-    result.raw_output = out.str();
+        result.raw_output = output;
+    }
 
-    // libera memória
-    for (size_t i = 0; i < envp.size(); ++i)
+    // ----------------------------------------------------
+    // CLEANUP MEMORY
+    // ----------------------------------------------------
+    for (size_t i = 0; i < envp.size(); i++)
         free(envp[i]);
-    for (size_t i = 0; i < argv.size(); ++i)
-        free(argv[i]);
+
+    for (size_t i = 0; i < argv_vec.size(); i++)
+        free(argv_vec[i]);
 
     return result;
 }
@@ -317,6 +354,15 @@ Response CgiHandler::handleCgiRequest(const Request &req,
     std::string script_path = loc.root + req.uri.substr(loc.path.size());
 
     CgiResult   result = CgiHandler::execute(req, script_path, config);
+
+    if (result.exit_status == 504)
+    {
+        res.status = 504;
+        res.body = "<h1>504 Gateway Timeout (CGI)</h1>";
+        res.headers["Content-Type"] = "text/html";
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        return res;
+    }
 
     if (result.exit_status != 0 && result.exit_status != 200 && !result.raw_output.size())
     {

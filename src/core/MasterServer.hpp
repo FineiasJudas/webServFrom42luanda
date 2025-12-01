@@ -1,47 +1,48 @@
-#ifndef MASTER_SERVER_HPP
-#define MASTER_SERVER_HPP
+#ifndef MASTERSERVER_HPP
+#define MASTERSERVER_HPP
 
 #include <vector>
 #include <map>
-#include <string>
-
 #include "Poller.hpp"
-#include "../../includes/Headers.hpp"
-#include "ListenSocket.hpp"
 #include "Connection.hpp"
 #include "../config/Config.hpp"
+#include "../http/Request.hpp"
+#include "ListenSocket.hpp"
 
 class   MasterServer
 {
     private:
         Poller  poller;
 
-        // Todos os listen sockets (uma porta pode aparecer em mais de um server block)
-        std::vector<ListenSocket*> listenSockets;
+        std::vector<int>    listenFds;    // lista de FDs de listen
+        std::map<int, std::vector<ServerConfig*> >  listenFdToServer;
+        std::map<int, Connection*>  connections;
 
-        // Mapeia FD → Connection*
-        std::map<int, Connection *> connections;
 
-        // Mapeia listen FD → qual server config usar
-        std::map<int, ServerConfig *> listenFdToServer;
-
-        int     read_timeout;      // <--- NOVO
-        int     keepalive_timeout; // <--- NOVO
+        int     read_timeout;
+        int     write_timeout;
+        int     keepalive_timeout;
 
     public:
         MasterServer(const std::vector<ServerConfig> &servers);
         ~MasterServer();
 
-        void run();
+        void    run();
 
     private:
-        void    createListenSockets(const std::vector<ServerConfig> &servers);
+        void    createListenSockets(const std::vector<ServerConfig>& servers);
+
         void    handleAccept(int listenFd);
         void    handleRead(int clientFd);
         void    handleWrite(int clientFd);
         void    closeConnection(int clientFd);
 
-        void checkWriteTimeouts();
+        ServerConfig    *selectServer(const Request& req, int listenFd);
+
+        void    checkTimeouts();
+
+        bool    isListenFd(int fd) const;
 };
 
 #endif
+
