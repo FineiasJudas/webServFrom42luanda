@@ -3,26 +3,14 @@
 
 #include <vector>
 #include <map>
+#include <string>
 #include "Poller.hpp"
 #include "Connection.hpp"
-#include "../config/Config.hpp"
+#include "../config/Config.hpp" // ServerConfig, LocationConfig
 #include "../http/Request.hpp"
-#include "ListenSocket.hpp"
 
 class   MasterServer
 {
-    private:
-        Poller  poller;
-
-        std::vector<int>    listenFds;    // lista de FDs de listen
-        std::map<int, std::vector<ServerConfig*> >  listenFdToServer;
-        std::map<int, Connection*>  connections;
-
-
-        int     read_timeout;
-        int     write_timeout;
-        int     keepalive_timeout;
-
     public:
         MasterServer(const std::vector<ServerConfig> &servers);
         ~MasterServer();
@@ -30,19 +18,37 @@ class   MasterServer
         void    run();
 
     private:
-        void    createListenSockets(const std::vector<ServerConfig>& servers);
+        Poller  poller;
+
+        // listen fd -> vector de ServerConfig* que ouvem nessa porta
+        std::map<int, std::vector<ServerConfig*> > listenFdToServers;
+
+        // client fd -> Connection*
+        std::map<int, Connection*> connections;
+
+        // tempoouts (segundos)
+        int     read_timeout;       // tempo máximo sem completar um request
+        int     write_timeout;      // tempo máximo bloqueado em escrita
+        int     keepalive_timeout;  // tempo de keep-alive entre requests
+
+    private:
+        void    createListenSockets(const std::vector<ServerConfig> &servers);
+        int     createListenSocketForPort(int port);
 
         void    handleAccept(int listenFd);
         void    handleRead(int clientFd);
         void    handleWrite(int clientFd);
         void    closeConnection(int clientFd);
 
-        ServerConfig    *selectServer(const Request& req, int listenFd);
+        ServerConfig*   selectServerForRequest(const Request &req, int listenFd);
 
         void    checkTimeouts();
 
+        // util
         bool    isListenFd(int fd) const;
+        int     parsePortFromListenString(const std::string &s) const;
 };
 
 #endif
+
 

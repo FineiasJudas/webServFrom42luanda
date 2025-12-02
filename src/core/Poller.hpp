@@ -13,7 +13,7 @@ struct  PollEvent
     bool    isError() const    { return events & (EPOLLHUP | EPOLLERR); }
 };
 
-class Poller
+class   Poller
 {
     private:
         int epfd;

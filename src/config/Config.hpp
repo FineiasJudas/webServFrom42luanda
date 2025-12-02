@@ -16,8 +16,8 @@ struct  LocationConfig
     bool    auto_index_set;
     bool    auto_index;
 
-    int redirect_code;         // ⬅ NOVO (301, 302, etc)
-    std::string redirect_url;  // ⬅ NOVO
+    int     redirect_code;
+    std::string redirect_url;
 
     LocationConfig()
         : directory_listing(false),
@@ -40,7 +40,6 @@ struct  ServerConfig
     bool    auto_index;
 
     int     cgi_timeout;
-
 
     ServerConfig()
         : max_body_size(1024 * 1024),

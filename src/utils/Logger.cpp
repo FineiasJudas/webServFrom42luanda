@@ -38,6 +38,8 @@ std::string Logger::levelToString(LogLevel level)
         case INFO:  return "INFO ";
         case WARN:  return "WARN ";
         case ERROR: return "ERROR";
+        case NEW:   return "NEW  ";
+        case WINT:   return "WINT ";
     }
     return "UNKN ";
 }
@@ -83,6 +85,8 @@ void Logger::log(LogLevel level, const std::string &message)
         case INFO:  color = "\x1b[37m"; break; // green
         case WARN:  color = "\x1b[33m"; break; // yellow
         case ERROR: color = "\x1b[31m"; break; // red
+        case NEW:   color = "\x1b[36m"; break; // xxx
+        case WINT:   color = "\x1b[35m"; break; // xxx
         default:    color = ""; break;
     }
 

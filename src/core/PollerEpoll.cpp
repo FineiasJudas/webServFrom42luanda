@@ -7,7 +7,6 @@ Poller::Poller()
     if (epfd < 0)
         throw std::runtime_error("epoll_create1 failed");
 
-    // espaço para até 1024 eventos por ciclo
     eventBuffer.resize(1024);
 }
 

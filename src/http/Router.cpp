@@ -79,7 +79,13 @@ void    parseUri(Request &req)
     }
 }
 
-Response    handleUploadsList(const Request &req)
+//
+// ────────────────────────────────────────────────────────────────────────────────
+//   LISTAR ARQUIVOS EM /uploads-list
+// ────────────────────────────────────────────────────────────────────────────────
+//
+
+Response handleUploadsList(const Request &req)
 {
     (void)req;
 
@@ -92,18 +98,20 @@ Response    handleUploadsList(const Request &req)
         res.status = 500;
         res.body = "{\"error\": \"cannot open uploads folder\"}";
         res.headers["Content-Type"] = "application/json";
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
         return res;
     }
 
     std::stringstream json;
     json << "{ \"files\": [";
-    bool first = true;
 
+    bool first = true;
     struct dirent *entry;
+
     while ((entry = readdir(dir)))
     {
         if (entry->d_name[0] == '.')
-            continue ;
+            continue;
 
         if (!first) json << ",";
         first = false;
@@ -117,105 +125,136 @@ Response    handleUploadsList(const Request &req)
     res.status = 200;
     res.body = json.str();
     res.headers["Content-Type"] = "application/json";
+    res.headers["Content-Length"] = Utils::toString(res.body.size());
     return res;
 }
 
-Response    handleDeleteFile(const Request &req)
+//
+// ────────────────────────────────────────────────────────────────────────────────
+//   DELETE EM /delete-file?name=
+// ────────────────────────────────────────────────────────────────────────────────
+//
+
+Response handleDeleteFile(const Request &req)
 {
-    Response    res;
-
-    if (req.query.count("name") == 0)
+    if (req.query.find("name") == req.query.end())
     {
-        res.status = 400;
-        res.body = "{\"error\": \"missing file name\"}";
-        res.headers["Content-Type"] = "application/json";
-        return res;
+        Response r;
+        r.status = 400;
+        r.body = "{\"error\": \"missing ?name=\"}";
+        r.headers["Content-Type"] = "application/json";
+        r.headers["Content-Length"] = Utils::toString(r.body.size());
+        return r;
     }
 
-    std::string name = req.query.find("name")->second;
-
-    std::cout << "Delete file: " << name << std::endl;
-
-    if (name.empty())
-    {
-        res.status = 400;
-        res.body = "{\"error\": \"missing file name\"}";
-        res.headers["Content-Type"] = "application/json";
-        return res;
-    }
-
-    std::string fullpath = "./examples/www/uploads/" + name;
+    std::string filename = req.query.at("name");
+    std::string fullpath = "./examples/www/uploads/" + filename;
 
     if (unlink(fullpath.c_str()) != 0)
     {
-        res.status = 404;
-        res.body = "{\"error\": \"file not found\"}";
-    }
-    else
-    {
-        res.status = 200;
-        res.body = "{\"message\": \"deleted\"}";
+        Response r;
+        r.status = 500;
+        r.body = "{\"error\": \"failed to delete\"}";
+        r.headers["Content-Type"] = "application/json";
+        r.headers["Content-Length"] = Utils::toString(r.body.size());
+        return r;
     }
 
-    res.headers["Content-Type"] = "application/json";
-    return res;
+    Response r;
+    r.status = 200;
+    r.body = "{\"status\": \"deleted\"}";
+    r.headers["Content-Type"] = "application/json";
+    r.headers["Content-Length"] = Utils::toString(r.body.size());
+    return r;
 }
 
 
-Response    Router::route(const Request &req, const ServerConfig &config)
+Response Router::route(const Request &req, const ServerConfig &config)
 {
-    Request tmp = req;
+    // ============================================================================
+    // 0) ENDPOINTS ESPECIAIS SEM PASSAR POR LOCATION
+    // (Eles sempre devem ser processados *antes* do findBestLocation)
+    // ============================================================================
 
-    // 1) Encontrar location
-    const LocationConfig    &loc = findBestLocation(req.uri, config);
+    if (req.method == "GET" && req.uri == "/uploads-list")
+        return handleUploadsList(req);
+
+    if (req.method == "DELETE" && req.uri.rfind("/delete-file", 0) == 0)
+    {
+        Request tmp = req;
+        parseUri(tmp);
+        return handleDeleteFile(tmp);
+    }
+
+
+    // ============================================================================
+    // 1) Encontrar location correto
+    // ============================================================================
+
+    const LocationConfig &loc = findBestLocation(req.uri, config);
     Logger::log(Logger::INFO, "Rota encontrada: " + loc.path);
 
-    // 1.5) Check redirect
+
+    // ============================================================================
+    // 1.5) Redirecionamento
+    // ============================================================================
+
     if (loc.redirect_code != 0)
     {
-        Response    r;
+        Response r;
 
         r.status = loc.redirect_code;
         r.headers["Location"] = loc.redirect_url;
-        r.body = "<h1>" + Utils::toString(loc.redirect_code) + 
-                " Redirect</h1><p> → " + loc.redirect_url + "</p>";
+
+        r.body = "<h1>" + Utils::toString(loc.redirect_code)
+                 + " Redirect</h1><p>→ " + loc.redirect_url + "</p>";
+
         r.headers["Content-Length"] = Utils::toString(r.body.size());
         r.headers["Content-Type"] = "text/html";
         return r;
     }
 
-    // 2) Bloquear directory traversal
+
+    // ============================================================================
+    // 2) Proteger contra directory traversal
+    // ============================================================================
+
     if (req.uri.find("..") != std::string::npos)
         return forbiddenPageResponse(config);
 
-    // 3) ENDPOINT ESPECIAL → /uploads-list (GET)
-    if (req.uri == "/uploads-list" && req.method == "GET")
-        return handleUploadsList(req);
 
-    // 4) ENDPOINT ESPECIAL → /delete-file (DELETE)
-    parseUri(tmp);
-    if (tmp.path == "/delete-file" && tmp.method == "DELETE")
-        return handleDeleteFile(tmp);
+    // ============================================================================
+    // 3) CGI (se extensão combinou)
+    // ============================================================================
 
-    // 5) CGI
     std::string ext = getExtension(req.uri);
     if (!loc.cgi_extension.empty() && ext == loc.cgi_extension)
         return CgiHandler::handleCgiRequest(req, config, loc);
 
-    // 6) Resolver caminho real do arquivo
+
+    // ============================================================================
+    // 4) Resolver caminho real de arquivo
+    // ============================================================================
+
     std::string root = loc.root.empty() ? config.root : loc.root;
     std::string path = root;
 
+    // Corrigir duplo slash
     if (path[path.size() - 1] == '/' && req.uri[0] == '/')
         path += req.uri.substr(1);
     else
         path += req.uri;
 
-    // 7) GET
+
+    // ============================================================================
+    // 5) Métodos HTTP
+    // ============================================================================
+
+    // GET
     if (req.method == "GET")
         return methodGet(config, loc, path, req.uri);
 
-    // 8) POST
+    // POST
     if (req.method == "POST")
     {
         if (!loc.upload_dir.empty())
@@ -224,10 +263,14 @@ Response    Router::route(const Request &req, const ServerConfig &config)
         return methodPost(req, config, path);
     }
 
-    // 9) DELETE em arquivos normais
+    // DELETE
     if (req.method == "DELETE")
         return methodDelete(path, config);
 
-    // 10) Método não permitido
+
+    // ============================================================================
+    // Método não permitido
+    // ============================================================================
+
     return notAloweMethodResponse(config);
 }

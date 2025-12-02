@@ -149,7 +149,7 @@ static Response notFoundResponse(const ServerConfig &config)
     return res;
 }
 
-Response forbiddenPageResponse(const ServerConfig &config)
+Response    forbiddenPageResponse(const ServerConfig &config)
 {
     Response    res;
     std::string errorPath;
@@ -212,7 +212,7 @@ static Response    generateDirectoryListing(const std::string &uri,
     return res;
 }
 
-Response methodGet(const ServerConfig &config,
+Response    methodGet(const ServerConfig &config,
                            const LocationConfig &loc,
                            const std::string &path,
                            const std::string &uri)
@@ -249,7 +249,6 @@ Response methodGet(const ServerConfig &config,
 
         if (autoIndex)
             return generateDirectoryListing(uri, path);
-
 
         // 2.c. Caso contrário → Forbidden
         return forbiddenPageResponse(config);
@@ -318,7 +317,7 @@ Response methodPost(const Request &req,
 
 Response   methodDelete(const std::string &path, const ServerConfig &config)
 {
-    Response res;
+    Response    res;
 
     if (fileExists(path))
     {
@@ -332,7 +331,7 @@ Response   methodDelete(const std::string &path, const ServerConfig &config)
     return (res);
 }
 
-Response notAloweMethodResponse(const ServerConfig &config)
+Response    notAloweMethodResponse(const ServerConfig &config)
 {
     Response res;
 
@@ -359,7 +358,7 @@ Response notAloweMethodResponse(const ServerConfig &config)
     return (res);
 }
 
-Response methodPostMultipart(const Request &req,
+Response    methodPostMultipart(const Request &req,
                              const std::string &uploadDir)
 {
     Response    res;

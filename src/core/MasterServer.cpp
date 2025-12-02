@@ -1,145 +1,272 @@
-#include "../../includes/Headers.hpp"
-#include "../utils/Utils.hpp"
 #include "MasterServer.hpp"
 #include "../utils/Logger.hpp"
+#include "../utils/Utils.hpp"
 #include "../http/HttpParser.hpp"
-#include "../http/Request.hpp"
-#include "../http/Response.hpp"
 #include "../http/Router.hpp"
-#include "Signal.hpp"
-#include <set>
 
 volatile bool   g_running = true;
 
 MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
 {
-    read_timeout = 15;
-    write_timeout = 15;
-    keepalive_timeout = 20;
+    this->read_timeout = 10;
+    this->write_timeout = 10;
+    this->keepalive_timeout = 15;
 
     createListenSockets(servers);
 }
 
 MasterServer::~MasterServer()
 {
-    for (std::map<int, Connection*>::iterator it = connections.begin();
-         it != connections.end(); ++it)
+    for (std::map<int, Connection *>::iterator it = connections.begin();
+        it != connections.end(); ++it)
     {
+        int fd = it->first;
+        close(fd);
         delete it->second;
+    }
+
+    for (std::map<int, std::vector<ServerConfig *> >::iterator it = listenFdToServers.begin();
+         it != listenFdToServers.end(); ++it)
+        close(it->first);
+}
+
+int     MasterServer::parsePortFromListenString(const std::string &s) const
+{
+    std::string     portstr;
+    size_t colon = s.find(':');
+
+    if (colon == std::string::npos)
+        portstr = s;
+    else
+        portstr = s.substr(colon + 1);
+    if (portstr.empty())
+        return (-1);
+    return atoi(portstr.c_str());
+}
+
+void    MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
+{
+    int     fd;
+    int     port;
+    int     foundFd;
+
+    for (size_t i = 0; i < servers.size(); ++i)
+    {
+        const ServerConfig  &sc = servers[i];
+
+        for (size_t j = 0; j < sc.listen.size(); ++j)
+        {
+            port = parsePortFromListenString(sc.listen[j]);
+            if (port <= 0)
+            {
+                Logger::log(Logger::ERROR, "Valor inválido para uma porta: " + sc.listen[j]);
+                continue ;
+            }
+
+            foundFd = -1;
+            for (std::map<int, std::vector<ServerConfig*> >::iterator it = listenFdToServers.begin();
+                 it != listenFdToServers.end(); ++it)
+            {
+                // não guardamos o porto no map, por isso assumimos que para cada fd já criado
+                // vamos verificar getsockname
+                struct sockaddr_in  addr;
+
+                fd = it->first;
+                socklen_t len = sizeof(addr);
+                if (getsockname(fd, (struct sockaddr*)&addr, &len) == 0)
+                {
+                    if ((int)ntohs(addr.sin_port) == port)
+                    {
+                        foundFd = fd;
+                        break;
+                    }
+                }
+            }
+
+            if (foundFd == -1)
+            {
+                fd = createListenSocketForPort(port);
+                if (fd >= 0)
+                {
+                    listenFdToServers[fd].push_back((ServerConfig*)&sc);
+                    Logger::log(Logger::INFO, "Ouvindo na porta "
+                         + Utils::toString(port));
+                }
+                else
+                    Logger::log(Logger::ERROR, "Falha ao criar um listen para a porta "
+                         + Utils::toString(port));
+            }
+            else
+            {
+                listenFdToServers[foundFd].push_back((ServerConfig*)&sc);
+                Logger::log(Logger::INFO, "Servidor virtual adicionado para a porta " + Utils::toString(port));
+            }
+        }
     }
 }
 
-void MasterServer::createListenSockets(const std::vector<ServerConfig>& servers)
+int MasterServer::createListenSocketForPort(int port)
 {
-    for (size_t i = 0; i < servers.size(); ++i)
+    int     fd;
+    int     yes = 1;
+    int     flags;
+
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0)
     {
-        int fd = socket(AF_INET, SOCK_STREAM, 0);
-
-        fcntl(fd, F_SETFL, O_NONBLOCK);
-
-        sockaddr_in addr;
-        addr.sin_family = AF_INET;
-        addr.sin_port   = htons(atoi(servers[i].listen[0].c_str()));
-        addr.sin_addr.s_addr = INADDR_ANY;
-
-        bind(fd, (sockaddr*)&addr, sizeof(addr));
-        listen(fd, 10);
-
-        listenFds.push_back(fd);
-        listenFdToServer[fd].push_back((ServerConfig*)&servers[i]);
-
-        poller.addFd(fd, EPOLLIN | EPOLLET);
-        Logger::log(Logger::INFO, "Listening on port " +
-                   (servers[i].listen[0]));
+        Logger::log(Logger::ERROR, "socket() fail: " + Utils::toString(errno));
+        return (-1);
     }
+
+    yes = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+
+    flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0)
+        flags = 0;
+    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+    struct sockaddr_in  addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+
+    if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
+    {
+        Logger::log(Logger::ERROR, "bind() fail: " + Utils::toString(errno));
+        close(fd);
+        return (-1);
+    }
+    if (listen(fd, SOMAXCONN) < 0)
+    {
+        Logger::log(Logger::ERROR, "listen() fail: " + Utils::toString(errno));
+        close(fd);
+        return (-1);
+    }
+    poller.addFd(fd, EPOLLIN);
+    return (fd);
+}
+
+bool    MasterServer::isListenFd(int fd) const
+{
+    return (listenFdToServers.count(fd) > 0);
+}
+
+ServerConfig    *MasterServer::selectServerForRequest(const Request &req, int listenFd)
+{
+    size_t      p;
+    std::string     host;
+    std::vector<ServerConfig*>  &vec = listenFdToServers[listenFd];
+
+    if (vec.empty())
+        return (NULL);
+
+    // extrair host sem porta
+    if (req.headers.count("Host"))
+        host = req.headers.at("Host");
+
+    p = host.find(':');
+    if (p != std::string::npos)
+        host = host.substr(0, p);
+
+    // procurar server_name que case
+    for (size_t i = 0; i < vec.size(); ++i)
+    {
+        ServerConfig *sc = vec[i];
+        // se tiver server_names (opcional), comparar
+        for (size_t k = 0; k < sc->server_names.size(); ++k)
+        {
+            if (sc->server_names[k] == host)
+                return (sc);
+        }
+    }
+    return vec[0];
 }
 
 void    MasterServer::handleAccept(int listenFd)
 {
-    while (true)
-    {
-        socklen_t   len;
-        struct sockaddr_in  cli;
+    int     flags;
+    int     clientFd;
 
-        len = sizeof(cli);
-        int clientFd = accept(listenFd, (struct sockaddr *)&cli, &len);
-        if (clientFd < 0)
+    clientFd = accept(listenFd, NULL, NULL);
+    if (clientFd < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
             return ;
-
-        fcntl(clientFd, F_SETFL, O_NONBLOCK);
-
-        Connection* conn = new Connection(clientFd);
-        conn->setListenFd(listenFd);
-
-        connections[clientFd] = conn;
-
-        poller.addFd(clientFd, EPOLLIN | EPOLLET);
-
-        Logger::log(Logger::INFO, "Nova conexão aceita FD "
-            + Utils::toString(clientFd));
+        Logger::log(Logger::ERROR, "accept() error: " + Utils::toString(errno));
+        return ;
     }
-}
 
-ServerConfig    *MasterServer::selectServer(const Request& req, int listenFd)
-{
-    const std::vector<ServerConfig *> &list = listenFdToServer[listenFd];
+    flags = fcntl(clientFd, F_GETFL, 0);
+    if (flags < 0)
+        flags = 0;
+    fcntl(clientFd, F_SETFL, flags | O_NONBLOCK);
 
-    if (list.empty())
-        return NULL;
+    Connection *c = new Connection(clientFd);
+    c->setListenFd(listenFd);
+    c->last_activity_time = time(NULL);
+    c->waiting_for_write = false;
+    c->write_start_time = 0;
+    connections[clientFd] = c;
 
-    std::string host = req.headers.count("Host") ? req.headers.at("Host") : "";
-    size_t pos = host.find(':');
-    if (pos != std::string::npos)
-        host = host.substr(0, pos);
+    poller.addFd(clientFd, EPOLLIN | EPOLLET);
 
-    for (size_t i = 0; i < list.size(); i++)
-    {
-        for (size_t j = 0; j < list[i]->server_names.size(); j++)
-        {
-            if (list[i]->server_names[j] == host)
-                return list[i];
-        }
-    }
-    return list[0];
-}
-
-bool MasterServer::isListenFd(int fd) const
-{
-    return listenFdToServer.count(fd) > 0;
+    Logger::log(Logger::NEW, "Nova conexão aceita FD " + Utils::toString(clientFd));
 }
 
 void    MasterServer::handleRead(int clientFd)
 {
-    Connection  *conn = connections[clientFd];
+    ssize_t     n;
+    std::map<int, Connection*>::iterator it = connections.find(clientFd);
 
-    if (!conn)
+    if (it == connections.end())
         return ;
+
+    Connection *conn = it->second;
 
     while (true)
     {
-        ssize_t n = conn->readFromFd();
-        if (n <= 0)
-            break;
+        n = conn->readFromFd();
+        if (n > 0)
+            continue ;
+        else if (n == 0)
+        {
+            closeConnection(clientFd);
+            return ;
+        }
+        else
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                break ;
+            closeConnection(clientFd);
+            return ;
+        }
     }
 
-    Request req;
+    int processed = 0;
+    size_t  max_body = 1024 * 1024;
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
-        if (!HttpParser::parseRequest(conn->getInputBuffer(), req, 8192))
+        Request     req;
+
+        std::vector<ServerConfig*>  &vec = listenFdToServers[conn->getListenFd()];
+        if (!vec.empty())
+            max_body = vec[0]->max_body_size;
+
+        bool ok = HttpParser::parseRequest(conn->getInputBuffer(), req, max_body);
+        if (!ok)
         {
             Response    res;
             res.status = 400;
             res.body = "<h1>400 Bad Request</h1><a href=\"/\">Voltar</a>";
             res.headers["Content-Length"] = Utils::toString(res.body.size());
             res.headers["Content-Type"] = "text/html";
-
             conn->getOutputBuffer().append(res.toString());
             poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
             Logger::log(Logger::ERROR, "Status "
                   + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
             return ;
         }
-
         if (req.too_large_body)
         {
             Response    res;
@@ -148,303 +275,177 @@ void    MasterServer::handleRead(int clientFd)
             res.body = "<h1>413 Payload Too Large</h1><a href=\"/\">Voltar</a>";
             res.headers["Content-Length"] = Utils::toString(res.body.size());
             res.headers["Content-Type"] = "text/html";
-
             conn->getOutputBuffer().append(res.toString());
             poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-            Logger::log(Logger::ERROR, "Status "
+            Logger::log(Logger::NEW, "Status "
                   + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
-            break ;
+            return ;
         }
 
-        conn->setServer(selectServer(req, conn->getListenFd()));
-        ServerConfig* sc = conn->getServer();
+        // determinar servidor real (virtual host)
+        ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
+        conn->setServer(sc);
 
-        Logger::log(Logger::INFO, req.method + " " + req.uri + " " + req.version + " recebido na FD "
-                  + Utils::toString(clientFd));
+        std::string connHdr = "";
+        if (req.headers.count("Connection"))
+            connHdr = req.headers.at("Connection");
+        if (connHdr == "close")
+            conn->setCloseAfterSend(true);
+        else if (req.version == "HTTP/1.0" && connHdr != "keep-alive")
+            conn->setCloseAfterSend(true);
+        else
+            conn->setCloseAfterSend(false);
 
+        Logger::log(Logger::INFO, req.method + " " + req.uri + " " + req.version 
+            + " recebido na FD " + Utils::toString(clientFd));
+
+        // Roteamento
         Response res = Router::route(req, *sc);
 
-        // 🧠 Roteamento
-
-        res.status >= 200 && res.status <= 400 ? Logger::log(Logger::DEBUG, "Status "
+        res.status >= 200 && res.status <= 300 ? Logger::log(Logger::DEBUG, "Status "
                   + Utils::toString(res.status) + " "
-                  + Response::reasonPhrase(res.status)) : res.status >= 500 ? Logger::log(Logger::WARN, "Status "
+                  + Response::reasonPhrase(res.status)) : res.status >= 400 && res.status <= 500 ? Logger::log(Logger::ERROR, "Status "
                   + Utils::toString(res.status) + " "
-                  + Response::reasonPhrase(res.status)) : Logger::log(Logger::ERROR, "Status "
+                  + Response::reasonPhrase(res.status)) : Logger::log(Logger::WINT, "Status "
                   + Utils::toString(res.status) + " "
                   + Response::reasonPhrase(res.status));
 
         conn->getOutputBuffer().append(res.toString());
-        poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
 
-        if (req.headers.count("Connection") && req.headers.at("Connection") == "close")
-            conn->setCloseAfterSend(true);
+        processed++;
     }
+
+    if (processed > 0)
+        poller.modifyFd(clientFd, EPOLLOUT);
 }
 
-// Oleekeikke
 void    MasterServer::handleWrite(int clientFd)
 {
-    Connection *conn = connections[clientFd];
+    ssize_t     sent;
+    Connection  *conn = connections[clientFd];
     if (!conn)
-    {
-        closeConnection(clientFd);
         return ;
-    }
-
-    conn->last_activity_time = time(NULL);
 
     Buffer &out = conn->getOutputBuffer();
-
-    // nada para enviar → voltar a ler
     if (out.empty())
     {
         conn->waiting_for_write = false;
-        conn->last_activity_time = time(NULL);
         poller.modifyFd(clientFd, EPOLLIN | EPOLLET);
         return ;
     }
-
-    // marca início do write
     if (!conn->waiting_for_write)
     {
         conn->waiting_for_write = true;
         conn->write_start_time = time(NULL);
     }
 
-    // escreve
-    ssize_t sent = conn->writeToFd(out.data(), out.size());
-
+    sent = conn->writeToFd(out.data(), out.size());
     if (sent > 0)
         out.consume(sent);
 
-    if (out.empty())
+    if (conn->shouldCloseAfterSend() && out.empty())
     {
-        // terminou de escrever
-        conn->waiting_for_write = false;
-
-        if (conn->shouldCloseAfterSend())
-        {
-            closeConnection(clientFd);
-            return ;
-        }
-
-        // volta para modo leitura (HTTP keep-alive)
-        poller.modifyFd(clientFd, EPOLLIN | EPOLLET);
+        closeConnection(clientFd);
         return;
     }
-
-    // ainda há dados → mantém EPOLLOUT
-    poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
+    if (out.empty())
+    {
+        conn->waiting_for_write = false;
+        poller.modifyFd(clientFd, EPOLLIN | EPOLLET);
+    }
 }
-
-/*void    MasterServer::handleWrite(int clientFd)
-{
-    Connection *conn = connections[clientFd];
-    if (!conn)
-    {
-        closeConnection(clientFd);
-        return ;
-    }
-
-    conn->last_activity_time = time(NULL);
-
-    Buffer &out = conn->getOutputBuffer();
-
-    // nada para enviar → voltar a ler
-    if (out.empty())
-    {
-        conn->waiting_for_write = false;
-        poller.modifyFd(clientFd, EPOLLIN | EPOLLET);
-        return ;
-    }
-
-    // marca início do write
-    if (!conn->waiting_for_write)
-    {
-        conn->waiting_for_write = true;
-        conn->write_start_time = time(NULL);
-    }
-
-    // escreve
-    ssize_t sent = conn->writeToFd(out.data(), out.size());
-
-    if (sent > 0)
-        out.consume(sent);
-
-    if (out.empty())
-    {
-        // terminou de escrever
-        conn->waiting_for_write = false;
-
-        if (conn->shouldCloseAfterSend())
-        {
-            closeConnection(clientFd);
-            return ;
-        }
-
-        // volta para modo leitura (HTTP keep-alive)
-        poller.modifyFd(clientFd, EPOLLIN | EPOLLET);
-        return;
-    }
-
-    // ainda há dados → mantém EPOLLOUT
-    poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-}*/
-
 
 void    MasterServer::closeConnection(int clientFd)
 {
+    std::map<int, Connection *>::iterator it = connections.find(clientFd);
+
+    if (it == connections.end())
+        return ;
+
     poller.removeFd(clientFd);
     ::close(clientFd);
-    delete connections[clientFd];
-    connections.erase(clientFd);
+    delete it->second;
+    connections.erase(it);
+
     Logger::log(Logger::WARN, "Conexão fechada FD " + Utils::toString(clientFd));
 }
 
 void    MasterServer::checkTimeouts()
 {
+    time_t  idle;
     time_t  now = time(NULL);
 
-    for (std::map<int, Connection*>::iterator it = connections.begin();
-         it != connections.end(); )
+    std::vector<int> toClose;
+
+    for (std::map<int, Connection *>::iterator it = connections.begin(); it != connections.end(); ++it)
     {
         Connection *c = it->second;
-
-        long    idle = now - c->last_activity_time;
-
+        idle = now - c->last_activity_time;
         if (!c->getInputBuffer().empty() && idle > read_timeout)
         {
-            // READ TIMEOUT
             Logger::log(Logger::WARN, "[TIMEOUT] Read Timeout FD " + Utils::toString(c->getFd()));
-            poller.removeFd(c->getFd());
-            ::close(c->getFd());
-            delete c;
-            connections.erase(it++);
+            toClose.push_back(c->getFd());
             continue ;
         }
-
-        if (c->getInputBuffer().empty() && idle > keepalive_timeout)
+        if (c->waiting_for_write && (now - c->write_start_time) > write_timeout)
         {
-            // KEEP-ALIVE TIMEOUT
-            Logger::log(Logger::WARN, "[TIMEOUT] Keep-Alive Timeout FD " + Utils::toString(c->getFd()));
-            poller.removeFd(c->getFd());
-            ::close(c->getFd());
-            delete c;
-            connections.erase(it++);
-            continue ;
-        }
-
-        if (c->waiting_for_write && idle > write_timeout)
-        {
-            // WRITE TIMEOUT (ex: 10–15s)
             Logger::log(Logger::WARN, "[TIMEOUT] WRITE Timeout FD " + Utils::toString(c->getFd()));
-            poller.removeFd(c->getFd());
-            ::close(c->getFd());
-            delete c;
-            connections.erase(it++);
-            continue;
+            toClose.push_back(c->getFd());
+            continue ;
         }
-
-        ++it;
+        if (!c->waiting_for_write && c->getInputBuffer().empty() && idle > keepalive_timeout)
+        {
+            Logger::log(Logger::WARN, "[TIMEOUT] Keep-Alive Timeout FD " + Utils::toString(c->getFd()));
+            toClose.push_back(c->getFd());
+            continue ;
+        }
     }
+
+    for (size_t i = 0; i < toClose.size(); ++i)
+        closeConnection(toClose[i]);
 }
 
 void    MasterServer::run()
 {
+    int     fd;
+
     Logger::log(Logger::INFO, "MasterServer iniciado...");
     while (g_running)
     {
         std::vector<PollEvent> events = poller.waitEvents(1000);
 
-        for (size_t i = 0; i < events.size(); i++)
-        {
-            int fd = events[i].fd;
+        if (!g_running)
+            break;
 
-            if (!g_running)
-                break ;
+        for (size_t i = 0; i < events.size(); ++i)
+        {
+            fd = events[i].fd;
 
             if (events[i].isError())
             {
                 closeConnection(fd);
-                continue;
+                continue ;
             }
-
             if (isListenFd(fd))
             {
                 handleAccept(fd);
-                continue;
+                continue ;
             }
-
             if (events[i].isReadable())
                 handleRead(fd);
-
             if (events[i].isWritable())
                 handleWrite(fd);
         }
-
         checkTimeouts();
     }
-    Logger::log(Logger::INFO, "MasterServer encerrando conexões...");
-
-    // Fechar todas as conexões abertas
-    for (std::map<int, Connection*>::iterator it = connections.begin();
+    Logger::log(Logger::WINT, "MasterServer encerrando conexões...");
+    for (std::map<int, Connection *>::iterator it = connections.begin();
          it != connections.end(); ++it)
     {
         poller.removeFd(it->first);
         ::close(it->first);
         delete it->second;
     }
-
     connections.clear();
-
-    Logger::log(Logger::INFO, "MasterServer finalizado.");
+    Logger::log(Logger::WINT, "MasterServer finalizado.");
 }
-
-/*void    MasterServer::checkWriteTimeouts()
-{
-    long    now = time(NULL);
-
-    for (std::map<int, Connection*>::iterator it = connections.begin();
-         it != connections.end(); )
-    {
-        Connection *c = it->second;
-
-        long    idle = now - c->last_activity_time;
-
-        if (!c->getInputBuffer().empty() && idle > read_timeout)
-        {
-            // READ TIMEOUT
-            Logger::log(Logger::WARN, "[TIMEOUT] Read Timeout FD " + Utils::toString(c->getFd()));
-            poller.removeFd(c->getFd());
-            ::close(c->getFd());
-            delete c;
-            connections.erase(it++);
-            continue ;
-        }
-
-        if (c->getInputBuffer().empty() && idle > keepalive_timeout)
-        {
-            // KEEP-ALIVE TIMEOUT
-            Logger::log(Logger::WARN, "[TIMEOUT] Keep-Alive Timeout FD " + Utils::toString(c->getFd()));
-            poller.removeFd(c->getFd());
-            ::close(c->getFd());
-            delete c;
-            connections.erase(it++);
-            continue ;
-        }
-
-        if (c->waiting_for_write && idle > write_timeout)
-        {
-            // WRITE TIMEOUT (ex: 10–15s)
-            Logger::log(Logger::WARN, "[TIMEOUT] WRITE Timeout FD " + Utils::toString(c->getFd()));
-            poller.removeFd(c->getFd());
-            ::close(c->getFd());
-            delete c;
-            connections.erase(it++);
-            continue;
-        }
-
-        ++it;
-    }
-}*/

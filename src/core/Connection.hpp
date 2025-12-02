@@ -45,7 +45,6 @@ public:
     ssize_t     writeToFd(const char* data, size_t size);
 
     void    updateActivity();
-    bool handleRequest();
 
 };
 
