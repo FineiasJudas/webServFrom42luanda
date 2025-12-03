@@ -44,7 +44,11 @@ void ConfigParser::parseLocationBlock(std::ifstream &file, LocationConfig &loc)
         else if (key == KW::METHODS) //else if (key == "methods")
         {
             std::string m;
-            while (iss >> m) loc.methods.push_back(m);
+            while (iss >> m) {
+                loc.methods.push_back(m);
+                //std::cout << "method " << m << " add" << std::endl;
+                //###### nao verificamos se os metodos sao validos antes de add
+            }
         }
         else if (key == KW::DIRECTORY_LISTING) //else if (key == "directory_listing")
         {
@@ -139,6 +143,7 @@ void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server
     
         loc.path = KW::ROOT_DEFAULT;// "/";
         loc.root = server.root; // root do servidor
+        //######  os metodos como get e post
         server.locations.push_back(loc);
     }
 }

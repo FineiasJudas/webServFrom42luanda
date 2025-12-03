@@ -12,6 +12,9 @@ MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
     : read_timeout(15), keepalive_timeout(30)
 {
     createListenSockets(servers);
+     //Verifica se algum socket válido foi criado
+    if (listenSockets.empty())
+        throw std::runtime_error("Nenhuma porta válida para ouvir");
 }
 
 MasterServer::~MasterServer()
@@ -45,6 +48,12 @@ void    MasterServer::createListenSockets(const std::vector<ServerConfig> &serve
         {
             //host = servers[i].server_names[0].empty() ? "" : servers[i].server_names[0];
             port = atoi(addr_port.c_str());
+        }
+            //Validação da porta
+        if (port <= 0 || port > 65535)
+        {
+            Logger::log(Logger::ERROR, "Porta inválida: " + Utils::toString(port));
+            continue;
         }
         if (createdPorts.count(port) == 0)
         {

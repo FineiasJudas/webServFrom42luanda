@@ -15,7 +15,7 @@ int main(int ac, char **av)
 
     try
     {
-        Config conf = ConfigParser::parseFile(confFile);
+        Config conf = ConfigParser::parseFile(confFile); //ok
 
         if (conf.servers.empty())
         {
