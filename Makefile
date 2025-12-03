@@ -20,7 +20,8 @@ SRCS = \
     src/http/Response.cpp \
     src/config/ConfigParser.cpp \
     src/cgi/CgiHandler.cpp \
-    src/utils/Logger.cpp   # <-- ADICIONE ISTO
+    src/utils/Logger.cpp \
+    src/exceptions/WebServException.cpp 
 
 
 OBJS = $(SRCS:.cpp=.o)

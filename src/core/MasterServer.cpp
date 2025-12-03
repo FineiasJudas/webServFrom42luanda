@@ -6,6 +6,7 @@
 #include "../http/Request.hpp"
 #include "../http/Response.hpp"
 #include "../http/Router.hpp"
+#include "../exceptions/WebServException.hpp"
 #include <set>
 
 MasterServer::MasterServer(const std::vector<ServerConfig> &servers) 
@@ -14,7 +15,7 @@ MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
     createListenSockets(servers);
      //Verifica se algum socket válido foi criado
     if (listenSockets.empty())
-        throw std::runtime_error("Nenhuma porta válida para ouvir");
+        throw PortException("Portas inválidas ou nenhum listen socket criado.");
 }
 
 MasterServer::~MasterServer()
