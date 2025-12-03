@@ -1,0 +1,1 @@
+WebServException::WebServException(){}
