@@ -57,7 +57,7 @@ void    MasterServer::createListenSockets(const std::vector<ServerConfig> &serve
         for (size_t j = 0; j < sc.listen.size(); ++j)
         {
             port = parsePortFromListenString(sc.listen[j]);
-            if (port <= 0)
+            if (port <= 0 || port > 65535)
             {
                 Logger::log(Logger::ERROR, "Valor inválido para uma porta: " + sc.listen[j]);
                 continue ;
@@ -156,7 +156,7 @@ ServerConfig    *MasterServer::selectServerForRequest(const Request &req, int li
 {
     size_t      p;
     std::string     host;
-    std::vector<ServerConfig*>  &vec = listenFdToServers[listenFd];
+    std::vector<ServerConfig *>  &vec = listenFdToServers[listenFd];
 
     if (vec.empty())
         return (NULL);
@@ -217,7 +217,7 @@ void    MasterServer::handleAccept(int listenFd)
 void    MasterServer::handleRead(int clientFd)
 {
     ssize_t     n;
-    std::map<int, Connection*>::iterator it = connections.find(clientFd);
+    std::map<int, Connection *>::iterator it = connections.find(clientFd);
 
     if (it == connections.end())
         return ;
@@ -249,7 +249,7 @@ void    MasterServer::handleRead(int clientFd)
     {
         Request     req;
 
-        std::vector<ServerConfig*>  &vec = listenFdToServers[conn->getListenFd()];
+        std::vector<ServerConfig *>  &vec = listenFdToServers[conn->getListenFd()];
         if (!vec.empty())
             max_body = vec[0]->max_body_size;
 

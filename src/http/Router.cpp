@@ -79,11 +79,7 @@ void    parseUri(Request &req)
     }
 }
 
-//
-// ────────────────────────────────────────────────────────────────────────────────
 //   LISTAR ARQUIVOS EM /uploads-list
-// ────────────────────────────────────────────────────────────────────────────────
-//
 
 Response handleUploadsList(const Request &req)
 {
@@ -135,7 +131,7 @@ Response handleUploadsList(const Request &req)
 // ────────────────────────────────────────────────────────────────────────────────
 //
 
-Response handleDeleteFile(const Request &req)
+Response    handleDeleteFile(const Request &req)
 {
     if (req.query.find("name") == req.query.end())
     {
@@ -147,7 +143,15 @@ Response handleDeleteFile(const Request &req)
         return r;
     }
 
+    size_t p;
     std::string filename = req.query.at("name");
+
+    while ((p = filename.find("%20")) != std::string::npos)
+    {
+        filename.erase(p + 1, 2);
+        filename[p] = ' ';
+    }
+
     std::string fullpath = "./examples/www/uploads/" + filename;
 
     if (unlink(fullpath.c_str()) != 0)

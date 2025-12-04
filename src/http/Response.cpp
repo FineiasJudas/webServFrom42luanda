@@ -214,11 +214,19 @@ static Response    generateDirectoryListing(const std::string &uri,
 
 Response    methodGet(const ServerConfig &config,
                            const LocationConfig &loc,
-                           const std::string &path,
+                           const std::string &str,
                            const std::string &uri)
 {
+    size_t  p;
     Response    res;
+    std::string path = const_cast<std::string &>(str);
 
+    while ((p = path.find("%20")) != std::string::npos)
+    {
+        path.erase(p + 1, 2);
+        path[p] = ' ';
+    }
+    
     // 1. Se existe um arquivo exatamente no path → retornar arquivo
     if (fileExists(path))
     {

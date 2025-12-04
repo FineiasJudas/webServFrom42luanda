@@ -280,7 +280,7 @@
     <div class="container nav">
       <a href="../index.html" class="logo">
           <img src="../3u-server-svgrepo-com.png" alt="svServer" style="width: 32px; height: 28px;">
-        <span>WebServ</span>
+        <span>MasterServer</span>
       </a>
       <nav aria-label="Menu principal">
         <ul class="menu">
@@ -349,7 +349,7 @@
   </main>
   <footer class="foot">
         <p>All rights reserved.</p>
-        <p>© 2025 WenServ Team</p>
+        <p>© 2025 MasterServer Team</p>
   </footer>
   <!-- Modal de Upload -->
 <div id="uploadModal" style="
@@ -453,11 +453,13 @@
     });
 });
 
-async function loadFiles() {
+async function  loadFiles()
+{
     const grid = document.getElementById("filesGrid");
     grid.innerHTML = "<p>Carregando arquivos...</p>";
 
-    try {
+    try
+    {
         const res = await fetch("/uploads-list");
         const data = await res.json();
 

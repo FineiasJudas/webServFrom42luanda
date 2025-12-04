@@ -1,0 +1,2 @@
+http://localhost:8080/upload-file POST file=@file1.jpg
+http://localhost:8080/upload-file POST file=@file2.jpg
