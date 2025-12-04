@@ -3,6 +3,8 @@
 #include "../utils/Utils.hpp"
 #include "../http/HttpParser.hpp"
 #include "../http/Router.hpp"
+#include "../exceptions/WebServException.hpp"
+#include "./../utils/keywords.hpp"
 
 volatile bool   g_running = true;
 
@@ -13,6 +15,8 @@ MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
     this->keepalive_timeout = 15;
 
     createListenSockets(servers);
+     if (listenFdToServers.empty())
+        throw PortException("Portas inválidas ou nenhum ServerConfig criado");
 }
 
 MasterServer::~MasterServer()
@@ -39,7 +43,7 @@ int     MasterServer::parsePortFromListenString(const std::string &s) const
         portstr = s;
     else
         portstr = s.substr(colon + 1);
-    if (portstr.empty())
+    if (portstr.empty() || !Utils::isNumber(portstr))
         return (-1);
     return atoi(portstr.c_str());
 }
@@ -57,9 +61,16 @@ void    MasterServer::createListenSockets(const std::vector<ServerConfig> &serve
         for (size_t j = 0; j < sc.listen.size(); ++j)
         {
             port = parsePortFromListenString(sc.listen[j]);
-            if (port <= 0 || port > 65535)
+            if (port < KW::MIN_VALUE_PORT || port > KW::MAX_VALUE_PORT)
             {
-                Logger::log(Logger::ERROR, "Valor inválido para uma porta: " + sc.listen[j]);
+                std::ostringstream ss;
+                ss << "Porta inválida: Uma porta precisa ser um número entre " << KW::MIN_VALUE_PORT << " e " << KW::MAX_VALUE_PORT;
+                Logger::log(Logger::ERROR, ss.str());   
+
+                std::ostringstream ss2;
+                ss2 << "Porta inválida: porta inserida: " << sc.listen[j];
+                Logger::log(Logger::ERROR, ss2.str());
+                
                 continue ;
             }
 

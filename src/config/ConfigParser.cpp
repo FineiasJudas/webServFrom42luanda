@@ -1,8 +1,18 @@
 #include "ConfigParser.hpp"
+#include "./../utils/keywords.hpp"
+#include "./../utils/Utils.hpp"
+/*
 
+ -- adicionado os key_word --
+para unifornizar os literais(string) recorrentes neste projecto
+Finéias sempre que tiver de adicionar um literal a uma variavel,
+se for para usar o mesmo literal mais de uma vez adiciona este literar
+na classe KeyWord.cpp que está em src/utils/Keyword.hpp
+
+*/
 static  std::string stripComments(const std::string &line)
 {
-    size_t  pos = line.find('#');
+    size_t  pos = line.find(KW::COMMENT);//'#' KW significa key_word
 
     if (pos == std::string::npos)
         return (line);
@@ -98,9 +108,10 @@ void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server
         iss >> key;
         if (key == "listen")
         {
-            std::string v;
-            while (iss >> v)
-                server.listen.push_back(v);
+            std::string host_port;
+            while (iss >> host_port){
+                server.listen.push_back(host_port);
+            }
         }
         else if (key == "server_name")
         {
