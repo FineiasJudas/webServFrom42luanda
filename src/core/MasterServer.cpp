@@ -57,7 +57,7 @@ void    MasterServer::createListenSockets(const std::vector<ServerConfig> &serve
         for (size_t j = 0; j < sc.listen.size(); ++j)
         {
             port = parsePortFromListenString(sc.listen[j]);
-            if (port <= 0)
+            if (port <= 0)//## || port > 65535) faltou essa verificação?
             {
                 Logger::log(Logger::ERROR, "Valor inválido para uma porta: " + sc.listen[j]);
                 continue ;
