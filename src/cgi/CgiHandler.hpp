@@ -20,12 +20,15 @@ class   CgiHandler
     public:
         static CgiResult execute(
             const Request &req,
-            const std::string &script_path,
-            const ServerConfig &config
-        );
+                              const std::string &script_path,
+                              const ServerConfig &config,
+                              const LocationConfig &loc,
+                              const CgiConfig &cgiConfig);
+                              
         static Response handleCgiRequest(const Request &req,
                                   const ServerConfig &config,
-                                  const LocationConfig &loc);
+                                  const LocationConfig &loc,
+                                  const CgiConfig &cgiConfig);
         static Response parseCgiOutput(const std::string &raw);
 };
 

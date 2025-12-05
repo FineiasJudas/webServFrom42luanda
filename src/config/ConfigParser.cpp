@@ -34,22 +34,25 @@ std::string ConfigParser::trim(const std::string &s)
 void ConfigParser::parseLocationBlock(std::ifstream &file, LocationConfig &loc)
 {
     std::string line;
+    std::string pendingCgiExt; // extensão ainda sem path
 
     while (std::getline(file, line))
     {
         line = stripComments(line);
         line = trim(line);
         if (line.empty())
-            continue ;
+            continue;
         if (line == "}")
-            break ;
+            break;
 
-        std::istringstream  iss(line);
+        std::istringstream iss(line);
         std::string key;
-
         iss >> key;
+
         if (key == "root")
+        {
             iss >> loc.root;
+        }
         else if (key == "methods")
         {
             std::string m;
@@ -67,28 +70,47 @@ void ConfigParser::parseLocationBlock(std::ifstream &file, LocationConfig &loc)
             loc.auto_index_set = true;
         }
         else if (key == "upload_dir")
+        {
             iss >> loc.upload_dir;
+        }
         else if (key == "cgi_extension")
-            iss >> loc.cgi_extension;
+        {
+            iss >> pendingCgiExt;
+        }
         else if (key == "cgi_path")
         {
-            std::string v;
-            iss >> v;
-            loc.cgi_path = v;
+            std::string cgiPath;
+            iss >> cgiPath;
+
+            if (pendingCgiExt.empty())
+            {
+                std::cerr << "Error: cgi_path found without a preceding cgi_extension\n";
+            }
+            else
+            {
+                // Cria e adiciona um novo par (ext, path)
+                CgiConfig cgi_cfg;
+                cgi_cfg.cgi_extension = pendingCgiExt;
+                cgi_cfg.cgi_path = cgiPath;
+                loc.cgi_configs.push_back(cgi_cfg);
+
+                pendingCgiExt.clear();
+            }
         }
         else if (key == "return")
         {
             int code;
             std::string url;
             iss >> code >> url;
-
             loc.redirect_code = code;
             loc.redirect_url = url;
         }
     }
 }
 
+
 // SERVER BLOCK
+
 void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server)
 {
     std::string     line;

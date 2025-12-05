@@ -27,4 +27,10 @@
 
 #define MAX_EVENTS 64
 
+enum CgiType {
+    CGI_PHP,
+    CGI_PYTHON,
+    CGI_UNKNOWN
+};
+
 #endif

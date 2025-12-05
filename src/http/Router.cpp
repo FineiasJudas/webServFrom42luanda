@@ -232,12 +232,24 @@ Response Router::route(const Request &req, const ServerConfig &config)
     // ============================================================================
 
     std::string ext = getExtension(req.uri);
+
+    
+    for(long unsigned int i = 0; i < loc.cgi_configs.size(); i++)
+    {
+        std::cout << "Location Config Extencion: " << loc.cgi_configs[i].cgi_extension << " Extencion: " << ext << " Uri: " << req.uri << std::endl;
+        if (!loc.cgi_configs[i].cgi_extension.empty() && ext == loc.cgi_configs[i].cgi_extension)
+        {
+            return CgiHandler::handleCgiRequest(req, config, loc ,loc.cgi_configs[i]);
+        }
+    }
+    
+    /*
     std::cout << " Extencion: " << ext << "loc.cgi_extension" << loc.cgi_extension;
     if (!loc.cgi_extension.empty() && ext == loc.cgi_extension) // || ext == "php" ...
     {
         return CgiHandler::handleCgiRequest(req, config, loc);
     }
-
+    */
 
     // ============================================================================
     // 4) Resolver caminho real de arquivo

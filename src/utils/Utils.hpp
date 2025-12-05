@@ -23,6 +23,14 @@ class   Utils
 
             return true;
         }
+        static std::string  getExtension(const std::string &path)
+        {
+            size_t pos = path.rfind('.');
+
+            if (pos == std::string::npos)
+                return "";
+            return path.substr(pos);
+        }
 
 };
 

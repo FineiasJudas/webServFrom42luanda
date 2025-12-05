@@ -3,6 +3,7 @@
 
 #include "../../includes/Headers.hpp"
 
+/*
 struct  LocationConfig
 {
     std::string     path;
@@ -26,6 +27,41 @@ struct  LocationConfig
           redirect_code(0)
     {}
 };
+*/
+struct CgiConfig {
+    std::string cgi_extension;
+    std::string cgi_path;
+};
+
+struct LocationConfig
+{
+    std::string     path;
+    std::string     root;
+   // std::string     cgi_path;
+   // std::string     cgi_extension;
+
+    std::string     cgi_path;
+    std::string     cgi_extension;
+    std::vector<CgiConfig> cgi_configs;
+
+    std::string     upload_dir;
+    std::vector<std::string> methods;
+
+    bool    directory_listing;
+    bool    auto_index_set;
+    bool    auto_index;
+
+    int     redirect_code;
+    std::string redirect_url;
+
+    LocationConfig()
+        : directory_listing(false),
+          auto_index_set(false),
+          auto_index(false),
+          redirect_code(0)
+    {}
+};
+
 
 struct  ServerConfig
 {
