@@ -26,6 +26,9 @@ static void splitUri(const std::string &uri, std::string &path, std::string &que
     }
 }
 
+/*
+Acho que vai ter vários buildEnv's para cada tipo de extenção
+*/
 static std::vector<std::string> buildEnv(const Request &req,
     const std::string &script_path, const ServerConfig &config)
 {
@@ -100,6 +103,12 @@ CgiResult CgiHandler::execute(const Request& req,
         return result;
     }
 
+    /*
+    
+    criar uma funcao auxi, para isto também
+    
+    */
+
     // ------------------ INTERPRETER ---------------------
     std::string interpreter;
     for (size_t i = 0; i < config.locations.size(); i++)
@@ -128,6 +137,14 @@ CgiResult CgiHandler::execute(const Request& req,
         return result;
     }
 
+
+    /*
+    
+    criar BUILD ENV e ARGV  para cada tipo de extencao.
+    criar em remover este codigo desta funcao e criar uma funcao aux
+
+    */
+
     // ------------------ BUILD ENV -----------------------
     std::vector<std::string> env_strings = buildEnv(req, script_path, config);
     std::vector<char*> envp;
@@ -146,6 +163,10 @@ CgiResult CgiHandler::execute(const Request& req,
 
     bool early_error = false;
     std::string early_error_response;
+
+
+
+
 
     // -------------- CREATE PIPES ------------------------
     if (pipe(stdin_pipe) < 0 || pipe(stdout_pipe) < 0)
@@ -263,6 +284,11 @@ CgiResult CgiHandler::execute(const Request& req,
         result.raw_output = output;
     }
 
+
+
+    /*
+            pode ser outra funcao auxi
+    */
     // ----------------------------------------------------
     // CLEANUP MEMORY
     // ----------------------------------------------------
@@ -292,6 +318,9 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
     if (pos == std::string::npos)
     {
         // CGI realmente inválido
+        /*
+            Veja só todos iguais, refatorar
+        */
         res.status = 500;
         res.body = "<h1>500 Invalid CGI Output</h1>";
         res.headers["Content-Length"] = Utils::toString(res.body.size());
@@ -353,10 +382,15 @@ Response CgiHandler::handleCgiRequest(const Request &req,
 
     std::string script_path = loc.root + req.uri.substr(loc.path.size());
 
+    //passar de alguma forma a extencao
     CgiResult   result = CgiHandler::execute(req, script_path, config);
 
     if (result.exit_status == 504)
     {
+        /*
+        uma funcao para esses retornos, parecem todos iguas.
+        Reutilizar
+        */
         res.status = 504;
         res.body = "<h1>504 Gateway Timeout (CGI)</h1>";
         res.headers["Content-Type"] = "text/html";

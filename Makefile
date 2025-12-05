@@ -28,20 +28,20 @@ OBJS = $(SRCS:.cpp=.o)
 all: $(NAME)
 
 $(NAME): $(OBJS)
-	@echo "🔧 Linking $(NAME)..."
+	@echo "Linking $(NAME)..."
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(NAME) $(OBJS)
-	@echo "✅ Build complete!"
+	@echo "Build complete!"
 
 %.o: %.cpp
-	@echo "🧩 Compiling $< ..."
+	@echo "Compiling $< ..."
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
-	@echo "🧹 Cleaning object files..."
+	@echo "Cleaning object files..."
 	$(RM) $(OBJS)
 
 fclean: clean
-	@echo "🗑  Removing binary..."
+	@echo "Removing binary..."
 	$(RM) $(NAME)
 
 re: fclean all

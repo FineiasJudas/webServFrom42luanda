@@ -225,6 +225,21 @@ void    MasterServer::handleAccept(int listenFd)
     Logger::log(Logger::NEW, "Nova conexão aceita FD " + Utils::toString(clientFd));
 }
 
+/* 
+subject página 09
+
+• Você nunca deve fazer uma operação de leitura ou escrita sem passar por poll()
+(ou equivalente).
+
+• Verificar o valor de errno para ajustar o comportamento do servidor é estritamente
+proibido após realizar uma operação de leitura ou escrita.
+
+• Você não é obrigado a usar poll() (ou equivalente) antes de read() para recuperar
+seu arquivo de configuração.
+
+-- parece que não estammos a comprir com esses pontos: linha 265 (errno)
+*/
+
 void    MasterServer::handleRead(int clientFd)
 {
     ssize_t     n;
@@ -329,6 +344,8 @@ void    MasterServer::handleRead(int clientFd)
     if (processed > 0)
         poller.modifyFd(clientFd, EPOLLOUT);
 }
+
+
 
 void    MasterServer::handleWrite(int clientFd)
 {

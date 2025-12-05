@@ -232,8 +232,11 @@ Response Router::route(const Request &req, const ServerConfig &config)
     // ============================================================================
 
     std::string ext = getExtension(req.uri);
-    if (!loc.cgi_extension.empty() && ext == loc.cgi_extension)
+    std::cout << " Extencion: " << ext << "loc.cgi_extension" << loc.cgi_extension;
+    if (!loc.cgi_extension.empty() && ext == loc.cgi_extension) // || ext == "php" ...
+    {
         return CgiHandler::handleCgiRequest(req, config, loc);
+    }
 
 
     // ============================================================================
