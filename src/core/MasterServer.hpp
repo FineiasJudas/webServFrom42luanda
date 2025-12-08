@@ -21,7 +21,7 @@ class   MasterServer
         Poller  poller;
 
         // listen fd -> vector de ServerConfig* que ouvem nessa porta
-        std::map<int, std::vector<ServerConfig*> > listenFdToServers;
+        std::map<int, ServerConfig *> listenFdToServers;
 
         // client fd -> Connection*
         std::map<int, Connection*> connections;

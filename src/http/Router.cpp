@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include "../cgi/CgiHandler.hpp"
 #include <sstream>
+#include "../session/SessionManager.hpp"
 
 static std::string  getExtension(const std::string &path)
 {
@@ -172,30 +173,34 @@ Response    handleDeleteFile(const Request &req)
     return r;
 }
 
-
-Response Router::route(const Request &req, const ServerConfig &config)
+Response    Router::route(const Request &req, const ServerConfig &config)
 {
     // ============================================================================
     // 0) ENDPOINTS ESPECIAIS SEM PASSAR POR LOCATION
     // (Eles sempre devem ser processados *antes* do findBestLocation)
     // ============================================================================
+    
+    Response r;
+    Request rq = req;
 
-    if (req.method == "GET" && req.uri == "/uploads-list")
-        return handleUploadsList(req);
+    if (handleSession(rq, r))
+        return r;
 
-    if (req.method == "DELETE" && req.uri.rfind("/delete-file", 0) == 0)
+    if (rq.method == "GET" && rq.uri == "/uploads-list")
+        return handleUploadsList(rq);
+
+    if (rq.method == "DELETE" && rq.uri.rfind("/delete-file", 0) == 0)
     {
-        Request tmp = req;
+        Request tmp = rq;
         parseUri(tmp);
         return handleDeleteFile(tmp);
     }
-
 
     // ============================================================================
     // 1) Encontrar location correto
     // ============================================================================
 
-    const LocationConfig &loc = findBestLocation(req.uri, config);
+    const LocationConfig &loc = findBestLocation(rq.uri, config);
     Logger::log(Logger::INFO, "Rota encontrada: " + loc.path);
 
 
@@ -223,7 +228,7 @@ Response Router::route(const Request &req, const ServerConfig &config)
     // 2) Proteger contra directory traversal
     // ============================================================================
 
-    if (req.uri.find("..") != std::string::npos)
+    if (rq.uri.find("..") != std::string::npos)
         return forbiddenPageResponse(config);
 
 
@@ -231,11 +236,11 @@ Response Router::route(const Request &req, const ServerConfig &config)
     // 3) CGI (se extensão combinou)
     // ============================================================================
 
-    std::string ext = getExtension(req.uri);
+    std::string ext = getExtension(rq.uri);
     std::cout << " Extencion: " << ext << "loc.cgi_extension" << loc.cgi_extension;
     if (!loc.cgi_extension.empty() && ext == loc.cgi_extension) // || ext == "php" ...
     {
-        return CgiHandler::handleCgiRequest(req, config, loc);
+        return CgiHandler::handleCgiRequest(rq, config, loc);
     }
 
 
@@ -247,31 +252,30 @@ Response Router::route(const Request &req, const ServerConfig &config)
     std::string path = root;
 
     // Corrigir duplo slash
-    if (path[path.size() - 1] == '/' && req.uri[0] == '/')
-        path += req.uri.substr(1);
+    if (path[path.size() - 1] == '/' && rq.uri[0] == '/')
+        path += rq.uri.substr(1);
     else
-        path += req.uri;
-
+        path += rq.uri;
 
     // ============================================================================
     // 5) Métodos HTTP
     // ============================================================================
 
     // GET
-    if (req.method == "GET")
-        return methodGet(config, loc, path, req.uri);
+    if (rq.method == "GET")
+        return methodGet(config, loc, path, rq.uri);
 
     // POST
-    if (req.method == "POST")
+    if (rq.method == "POST")
     {
         if (!loc.upload_dir.empty())
-            return methodPostMultipart(req, loc.upload_dir);
+            return methodPostMultipart(rq, loc.upload_dir);
 
-        return methodPost(req, config, path);
+        return methodPost(rq, config, path);
     }
 
     // DELETE
-    if (req.method == "DELETE")
+    if (rq.method == "DELETE")
         return methodDelete(path, config);
 
 

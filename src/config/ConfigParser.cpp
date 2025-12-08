@@ -1,208 +1,206 @@
 #include "ConfigParser.hpp"
 #include "./../utils/keywords.hpp"
 #include "./../utils/Utils.hpp"
-/*
+#include "ConfigParser.hpp"
+#include <fstream>
+#include <sstream>
+#include <stdexcept>
+#include <cstdlib>
 
- -- adicionado os key_word --
-para unifornizar os literais(string) recorrentes neste projecto
-Finéias sempre que tiver de adicionar um literal a uma variavel,
-se for para usar o mesmo literal mais de uma vez adiciona este literar
-na classe KeyWord.cpp que está em src/utils/Keyword.hpp
-
-*/
-static  std::string stripComments(const std::string &line)
+// =========================
+// Funções utilitárias
+// =========================
+static std::string trim(const std::string &s)
 {
-    size_t  pos = line.find(KW::COMMENT);//'#' KW significa key_word
+    size_t start = 0;
+    while (start < s.size() && std::isspace(s[start]))
+        start++;
 
-    if (pos == std::string::npos)
-        return (line);
-    return (line.substr(0, pos));
+    size_t end = s.size();
+    while (end > start && std::isspace(s[end - 1]))
+        end--;
+
+    return s.substr(start, end - start);
 }
 
-// TRIM
-std::string ConfigParser::trim(const std::string &s)
+static bool endsWithSemicolon(const std::string &s)
 {
-    size_t  start = s.find_first_not_of(" \t\r\n");
-    size_t  end   = s.find_last_not_of(" \t\r\n");
-
-    if (start == std::string::npos)
-        return ("");
-    return s.substr(start, end - start + 1);
+    return !s.empty() && s[s.size() - 1] == ';';
 }
 
-// LOCATION BLOCK
-void ConfigParser::parseLocationBlock(std::ifstream &file, LocationConfig &loc)
+static std::string stripSemicolon(const std::string &s)
+{
+    if (endsWithSemicolon(s))
+        return trim(s.substr(0, s.size() - 1));
+    return s;
+}
+
+// =========================
+// Parser de Location
+// =========================
+void ConfigParser::parseLocation(std::ifstream &file,
+                                 LocationConfig &loc,
+                                 const std::string &firstLine)
+{
+    std::string path;
+    std::istringstream iss(firstLine);
+    std::string tmp;
+
+    iss >> tmp;     // location
+    iss >> path;    // /abc
+    loc.path = path;
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        line = trim(line);
+
+        if (line == "}")
+            break;
+
+        if (line.empty())
+            continue;
+
+        // Remove ponto e vírgula
+        line = stripSemicolon(line);
+
+        std::istringstream iss(line);
+        std::string key, value;
+        iss >> key;
+
+        if (key == "root")
+        {
+            iss >> value;
+            loc.root = value;
+        }
+        else if (key == "methods")
+        {
+            while (iss >> value)
+                loc.methods.push_back(value);
+        }
+        else if (key == "auto_index")
+        {
+            iss >> value;
+            loc.auto_index = (value == "on");
+            loc.auto_index_set = true;
+        }
+        else if (key == "upload_dir")
+        {
+            iss >> value;
+            loc.upload_dir = value;
+        }
+        else if (key == "return")
+        {
+            iss >> value;
+            loc.redirect_code = std::atoi(value.c_str());
+            iss >> loc.redirect_url;
+        }
+        else if (key == "cgi_extension")
+            iss >> loc.cgi_extension;
+        else if (key == "cgi_path")
+            iss >> loc.cgi_path;
+    }
+}
+
+// =========================
+// Parser de Server
+// =========================
+void ConfigParser::parseServer(std::ifstream &file, ServerConfig &cfg)
 {
     std::string line;
 
     while (std::getline(file, line))
     {
-        line = stripComments(line);
         line = trim(line);
+
+        if (line == "}" || line == "};")
+            break;
+
         if (line.empty())
             continue ;
-        if (line == "}")
-            break ;
 
-        std::istringstream  iss(line);
-        std::string key;
-
-        iss >> key;
-        if (key == "root")
-            iss >> loc.root;
-        else if (key == "methods")
-        {
-            std::string m;
-            while (iss >> m) loc.methods.push_back(m);
-        }
-        else if (key == "directory_listing")
-        {
-            std::string v; iss >> v;
-            loc.directory_listing = (v == "on");
-        }
-        else if (key == "auto_index")
-        {
-            std::string v; iss >> v;
-            loc.auto_index = (v == "on");
-            loc.auto_index_set = true;
-        }
-        else if (key == "upload_dir")
-            iss >> loc.upload_dir;
-        else if (key == "cgi_extension")
-            iss >> loc.cgi_extension;
-        else if (key == "cgi_path")
-        {
-            std::string v;
-            iss >> v;
-            loc.cgi_path = v;
-        }
-        else if (key == "return")
-        {
-            int code;
-            std::string url;
-            iss >> code >> url;
-
-            loc.redirect_code = code;
-            loc.redirect_url = url;
-        }
-    }
-}
-
-// SERVER BLOCK
-void    ConfigParser::parseServerBlock(std::ifstream &file, ServerConfig &server)
-{
-    std::string     line;
-
-    while (std::getline(file, line))
-    {
-        line = stripComments(line);
-        line = trim(line);
-        if (line.empty())
-            continue ;
-        if (line == "}")
-            break ;
+        // Remove ;
+        line = stripSemicolon(line);
 
         std::istringstream iss(line);
-        std::string     key;
-
+        std::string key, value;
         iss >> key;
+
         if (key == "listen")
         {
-            std::string host_port;
-            while (iss >> host_port){
-                server.listen.push_back(host_port);
-            }
+            iss >> value;
+            cfg.listen.push_back(value.c_str());
         }
         else if (key == "server_name")
         {
-            std::string v;
-            while (iss >> v)
-                server.server_names.push_back(v);
+            while (iss >> value)
+                cfg.server_names.push_back(value);
+        }
+        else if (key == "root")
+        {
+            iss >> cfg.root;
+        }
+        else if (key == "max_body_size")
+        {
+            iss >> value;
+            cfg.max_body_size = std::atoi(value.c_str());
         }
         else if (key == "auto_index")
         {
-            std::string v; iss >> v;
-            server.auto_index = (v == "on");
-            server.auto_index_set = true;
+            iss >> value;
+            cfg.auto_index = (value == "on");
+            cfg.auto_index_set = true;
         }
-        else if (key == "root")
-            // Agora root pertence ao ServerConfig
-            iss >> server.root;
-        else if (key == "max_body_size")
-            iss >> server.max_body_size;
         else if (key == "error_page")
         {
-            int     code;
-            std::string path;
-            iss >> code >> path;
-            server.error_pages[code] = path;
-        }
-        else if (key == "location")
-        {
-            LocationConfig  loc;
-            iss >> loc.path;
-            parseLocationBlock(file, loc);
-            server.locations.push_back(loc);
+            int code;
+            iss >> code;
+            iss >> value;
+            cfg.error_pages[code] = value;
         }
         else if (key == "cgi_timeout")
         {
-            int v; iss >> v;
-            server.cgi_timeout = v;
+            iss >> value;
+            cfg.cgi_timeout = std::atoi(value.c_str());
         }
-    }
-
-    // ===== GARANTI QUE "/" EXISTE COMO LOCATION DEFAULT =====
-    bool    hasRootLocation = false;
-    for (size_t i = 0; i < server.locations.size(); i++)
-        if (server.locations[i].path == "/")
-            hasRootLocation = true;
-
-    if (!hasRootLocation)
-    {
-        LocationConfig  loc;
-    
-        loc.path = "/";
-        loc.root = server.root; // root do servidor
-        server.locations.push_back(loc);
+        else if (key == "location")
+        {
+            LocationConfig loc;
+            parseLocation(file, loc, line);
+            cfg.locations.push_back(loc);
+        }
     }
 }
 
-// MAIN PARSING FUNCTION
-Config  ConfigParser::parseFile(const std::string &filename)
+// =========================
+// Parse Geral
+// =========================
+Config ConfigParser::parseFile(const std::string &filename)
 {
-    Config  conf;
-    std::ifstream   file(filename.c_str());
-
+    std::ifstream file(filename.c_str());
     if (!file.is_open())
-    {
-        std::cerr << "Could not open config: " << filename << std::endl;
-        return (conf);
-    }
+        throw std::runtime_error("Cannot open config file: " + filename);
 
-    std::string     line;
+    Config config;
+    std::string line;
+
     while (std::getline(file, line))
     {
-        line = stripComments(line);
         line = trim(line);
-        if (line.empty())
+        std::stringstream ss(line);
+        std::string keyword;
+
+        ss >> keyword;
+        if (keyword.empty() || keyword[0] == '#')
             continue ;
 
-        if (line == "server")
+        if (keyword == "server" || keyword == "server{")
         {
-            // Skip '{'
-            while (std::getline(file, line))
-            {
-                line = stripComments(line);
-                line = trim(line);
-                if (line == "{")
-                    break ;
-            }
-
-            ServerConfig    server;
-            parseServerBlock(file, server);
-
-            conf.servers.push_back(server);
+            ServerConfig    srv;
+            parseServer(file, srv);
+            config.servers.push_back(srv);
         }
     }
-    return (conf);
+
+    return config;
 }

@@ -121,7 +121,7 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
     return true;
 }
 
-bool HttpParser::parseChunkedBody(Buffer &buffer, Request &req)
+bool    HttpParser::parseChunkedBody(Buffer &buffer, Request &req)
 {
     std::string data = buffer.toString();
     size_t pos = req.header_end; // posição logo após \r\n\r\n dos headers
@@ -130,6 +130,11 @@ bool HttpParser::parseChunkedBody(Buffer &buffer, Request &req)
 
     while (true)
     {
+        req.headers.clear();
+        req.method.clear();
+        req.uri.clear();
+        req.version.clear();
+        req.body.clear();
         // 1. Ler tamanho em hexadecimal até CRLF
         size_t line_end = data.find("\r\n", pos);
         if (line_end == std::string::npos)
@@ -153,8 +158,11 @@ bool HttpParser::parseChunkedBody(Buffer &buffer, Request &req)
                 return false;
 
             // Remover tudo até o fim do chunked
-            buffer.consume(end_mark + 2);
+            // Consome tudo: headers + todos os chunks até o fim
+            size_t consumed = end_mark + 2;
+            buffer.consume(consumed);
 
+            // Salva o corpo real
             req.body = final_body;
             return true;
         }

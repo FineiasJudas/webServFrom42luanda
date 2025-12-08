@@ -5,14 +5,16 @@
 #include "../http/Router.hpp"
 #include "../exceptions/WebServException.hpp"
 #include "./../utils/keywords.hpp"
+#include "../session/SessionManager.hpp"
 
 volatile bool   g_running = true;
+static SessionManager  g_sessions(300);
 
 MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
 {
-    this->read_timeout = 10;
-    this->write_timeout = 10;
-    this->keepalive_timeout = 15;
+    this->read_timeout = 15;
+    this->write_timeout = 15;
+    this->keepalive_timeout = 20;
 
     createListenSockets(servers);
      if (listenFdToServers.empty())
@@ -29,7 +31,7 @@ MasterServer::~MasterServer()
         delete it->second;
     }
 
-    for (std::map<int, std::vector<ServerConfig *> >::iterator it = listenFdToServers.begin();
+    for (std::map<int, ServerConfig *>::iterator it = listenFdToServers.begin();
          it != listenFdToServers.end(); ++it)
         close(it->first);
 }
@@ -58,24 +60,24 @@ void    MasterServer::createListenSockets(const std::vector<ServerConfig> &serve
     {
         const ServerConfig  &sc = servers[i];
 
-        for (size_t j = 0; j < sc.listen.size(); ++j)
+        if (sc.listen.size() > 0)
         {
-            port = parsePortFromListenString(sc.listen[j]);
+            port = parsePortFromListenString(sc.listen[0]);
             if (port < KW::MIN_VALUE_PORT || port > KW::MAX_VALUE_PORT)
             {
-                std::ostringstream ss;
+                std::ostringstream  ss;
                 ss << "Porta inválida: Uma porta precisa ser um número entre " << KW::MIN_VALUE_PORT << " e " << KW::MAX_VALUE_PORT;
-                Logger::log(Logger::ERROR, ss.str());   
+                Logger::log(Logger::ERROR, ss.str());
 
-                std::ostringstream ss2;
-                ss2 << "Porta inválida: porta inserida: " << sc.listen[j];
+                std::ostringstream  ss2;
+                ss2 << "Porta inválida: porta inserida: " << sc.listen[0];
                 Logger::log(Logger::ERROR, ss2.str());
                 
                 continue ;
             }
 
             foundFd = -1;
-            for (std::map<int, std::vector<ServerConfig*> >::iterator it = listenFdToServers.begin();
+            for (std::map<int, ServerConfig *>::iterator it = listenFdToServers.begin();
                  it != listenFdToServers.end(); ++it)
             {
                 // não guardamos o porto no map, por isso assumimos que para cada fd já criado
@@ -89,7 +91,7 @@ void    MasterServer::createListenSockets(const std::vector<ServerConfig> &serve
                     if ((int)ntohs(addr.sin_port) == port)
                     {
                         foundFd = fd;
-                        break;
+                        break ;
                     }
                 }
             }
@@ -99,7 +101,7 @@ void    MasterServer::createListenSockets(const std::vector<ServerConfig> &serve
                 fd = createListenSocketForPort(port);
                 if (fd >= 0)
                 {
-                    listenFdToServers[fd].push_back((ServerConfig*)&sc);
+                    listenFdToServers[fd] = ((ServerConfig*)&sc);
                     Logger::log(Logger::INFO, "Ouvindo na porta "
                          + Utils::toString(port));
                 }
@@ -109,8 +111,8 @@ void    MasterServer::createListenSockets(const std::vector<ServerConfig> &serve
             }
             else
             {
-                listenFdToServers[foundFd].push_back((ServerConfig*)&sc);
-                Logger::log(Logger::INFO, "Servidor virtual adicionado para a porta " + Utils::toString(port));
+                Logger::log(Logger::WARN, "Porta "+ Utils::toString(port) + " já ocupada por um Server");
+                continue ;
             }
         }
     }
@@ -165,34 +167,17 @@ bool    MasterServer::isListenFd(int fd) const
 
 ServerConfig    *MasterServer::selectServerForRequest(const Request &req, int listenFd)
 {
-    size_t      p;
-    std::string     host;
-    std::vector<ServerConfig *>  &vec = listenFdToServers[listenFd];
-
-    if (vec.empty())
+    (void)req;
+    std::map<int, ServerConfig *>::const_iterator it = listenFdToServers.find(listenFd);
+    if (it == listenFdToServers.end())
         return (NULL);
 
-    // extrair host sem porta
-    if (req.headers.count("Host"))
-        host = req.headers.at("Host");
-
-    p = host.find(':');
-    if (p != std::string::npos)
-        host = host.substr(0, p);
-
-    // procurar server_name que case
-    for (size_t i = 0; i < vec.size(); ++i)
-    {
-        ServerConfig *sc = vec[i];
-        // se tiver server_names (opcional), comparar
-        for (size_t k = 0; k < sc->server_names.size(); ++k)
-        {
-            if (sc->server_names[k] == host)
-                return (sc);
-        }
-    }
-    return vec[0];
+    ServerConfig   *defaultServer = it->second;
+    if (!defaultServer)
+        return (NULL);
+    return (defaultServer);
 }
+
 
 void    MasterServer::handleAccept(int listenFd)
 {
@@ -275,9 +260,9 @@ void    MasterServer::handleRead(int clientFd)
     {
         Request     req;
 
-        std::vector<ServerConfig *>  &vec = listenFdToServers[conn->getListenFd()];
-        if (!vec.empty())
-            max_body = vec[0]->max_body_size;
+        std::map<int, ServerConfig *>::const_iterator  vec = listenFdToServers.find(conn->getListenFd());
+        if (vec != listenFdToServers.end() && vec->second)
+            max_body = vec->second->max_body_size;
 
         bool ok = HttpParser::parseRequest(conn->getInputBuffer(), req, max_body);
         if (!ok)
@@ -465,6 +450,7 @@ void    MasterServer::run()
                 handleWrite(fd);
         }
         checkTimeouts();
+        g_sessions.cleanup();
     }
     Logger::log(Logger::WINT, "MasterServer encerrando conexões...");
     for (std::map<int, Connection *>::iterator it = connections.begin();

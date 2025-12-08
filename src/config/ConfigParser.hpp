@@ -10,9 +10,9 @@ class   ConfigParser
         static Config   parseFile(const std::string &filename);
 
     private:
-        static std::string      trim(const std::string &s);
-        static void     parseServerBlock(std::ifstream &file, ServerConfig &server);
-        static void     parseLocationBlock(std::ifstream &file, LocationConfig &loc);
+        static void     parseLocation(std::ifstream &file, LocationConfig &loc,
+                                 const std::string &firstLine);
+        static void     parseServer(std::ifstream &file, ServerConfig &cfg);
 
 };
 
