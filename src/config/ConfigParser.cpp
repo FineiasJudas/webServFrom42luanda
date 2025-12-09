@@ -95,10 +95,13 @@ void ConfigParser::parseLocation(std::ifstream &file,
             loc.redirect_code = std::atoi(value.c_str());
             iss >> loc.redirect_url;
         }
-        else if (key == "cgi_extension")
-            iss >> loc.cgi_extension;
-        else if (key == "cgi_path")
-            iss >> loc.cgi_path;
+        else if (key == "cgi")
+        {
+            CgiConfig   cgiConfig;
+            iss >> cgiConfig.extension;
+            iss >> cgiConfig.path;
+            loc.cgi.push_back(cgiConfig);
+        }
     }
 }
 
@@ -108,6 +111,7 @@ void ConfigParser::parseLocation(std::ifstream &file,
 void ConfigParser::parseServer(std::ifstream &file, ServerConfig &cfg)
 {
     std::string line;
+    std::string pendingCgiExt; // extensão ainda sem path
 
     while (std::getline(file, line))
     {

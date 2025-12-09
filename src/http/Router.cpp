@@ -174,7 +174,7 @@ bool Router::handleSession(Request &req, Response &res)
 
     g_sessions.cleanup(); // limpa sessões expiradas
 
-    std::string     sid;
+    std::string sid;
 
     // 1. Ler cookie
     if (req.headers.count("Cookie"))
@@ -232,7 +232,7 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     Request rq = req;
 
     if (Router::handleSession(rq, r))
-        return (r);
+        return r;
 
     if (rq.method == "GET" && rq.uri == "/uploads-list")
         return handleUploadsList(rq);
@@ -272,12 +272,23 @@ Response    Router::route(const Request &req, const ServerConfig &config)
 
 
     // 3) CGI (se extensão combinou)
+    //return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi_configs[0]);
     std::string ext = getExtension(rq.uri);
-    std::cout << " Extencion: " << ext << "loc.cgi_extension" << loc.cgi_extension << std::endl;
+    for (size_t i = 0; i < loc.cgi.size(); i++)
+    {
+        if (ext == loc.cgi[i].extension)
+        {
+            Logger::log(Logger::INFO, "CGI para extensão: " + ext);
+            return CgiHandler::handleCgiRequest(
+                req, config, loc, loc.cgi[i]
+            );
+        }
+    }
+    /*std::cout << " Extencion: " << ext << "loc.cgi_extension" << loc.cgi_extension << std::endl;
     if (!loc.cgi_extension.empty() && ext == loc.cgi_extension) // || ext == "php" ...
     {
-        return CgiHandler::handleCgiRequest(rq, config, loc);
-    }
+        return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi_configs[0]);
+    }*/
 
 
     // 4) Resolver caminho real de arquivo
@@ -290,7 +301,10 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     else
         path += rq.uri;
 
+    // ============================================================================
     // 5) Métodos HTTP
+    // ============================================================================
+
     // GET
     if (rq.method == "GET")
         return methodGet(config, loc, path, rq.uri);
@@ -309,6 +323,9 @@ Response    Router::route(const Request &req, const ServerConfig &config)
         return methodDelete(path, config);
 
 
+    // ============================================================================
     // Método não permitido
+    // ============================================================================
+
     return notAloweMethodResponse(config);
 }

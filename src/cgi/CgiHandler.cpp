@@ -1,11 +1,13 @@
 #include "../../includes/Headers.hpp"
+#include "../utils/Logger.hpp"
 #include "CgiHandler.hpp"
 
 // helper trimming
 static std::string trim(const std::string &s)
 {
     size_t a = s.find_first_not_of(" \t\r\n");
-    if (a == std::string::npos) return std::string();
+    if (a == std::string::npos)
+        return std::string();
     size_t b = s.find_last_not_of(" \t\r\n");
     return s.substr(a, b - a + 1);
 }
@@ -29,8 +31,99 @@ static void splitUri(const std::string &uri, std::string &path, std::string &que
 /*
 Acho que vai ter vários buildEnv's para cada tipo de extenção
 */
+void addPhpVars(std::vector<std::string> &env) { env.push_back("REDIRECT_STATUS=200"); }
+
+static std::string normalizeHeaderKey(const std::string &key)
+{
+    std::string up;
+    up.reserve(key.size());
+    for (size_t i = 0; i < key.size(); ++i)
+    {
+        char c = key[i];
+        if (c == '-')
+            up += '_';
+        else
+            up += (char)std::toupper(c);
+    }
+    return up;
+}
+
+static void addBasicVars(const Request &req, std::vector<std::string> &env)
+{
+    env.push_back("GATEWAY_INTERFACE=CGI/1.1");
+    env.push_back("SERVER_PROTOCOL=" + req.version);
+    env.push_back("REQUEST_METHOD=" + req.method);
+    env.push_back("SERVER_SOFTWARE=webserv/1.0");
+    env.push_back("REDIRECT_STATUS=200");
+}
+
+static void addScriptVars(const std::string &script_path, std::vector<std::string> &env)
+{
+    env.push_back("SCRIPT_FILENAME=" + script_path);
+}
+
+static void addUriVars(const Request &req, std::vector<std::string> &env)
+{
+    std::string path, query;
+    splitUri(req.uri, path, query);
+
+    env.push_back("REQUEST_URI=" + req.uri);
+    env.push_back("QUERY_STRING=" + query);
+
+    if (req.headers.count("Host"))
+        env.push_back("SERVER_NAME=" + req.headers.at("Host"));
+    else
+        env.push_back("SERVER_NAME=localhost");
+}
+
+static void addContentVars(const Request &req, std::vector<std::string> &env)
+{
+    if (req.headers.count("Content-Length"))
+        env.push_back("CONTENT_LENGTH=" + req.headers.at("Content-Length"));
+    if (req.headers.count("Content-Type"))
+        env.push_back("CONTENT_TYPE=" + req.headers.at("Content-Type"));
+}
+
+static void addHttpHeaders(const Request &req, std::vector<std::string> &env)
+{
+    for (std::map<std::string, std::string>::const_iterator it = req.headers.begin();
+         it != req.headers.end(); ++it)
+    {
+        std::string up = normalizeHeaderKey(it->first);
+        env.push_back("HTTP_" + up + "=" + it->second);
+    }
+}
+
+static std::vector<std::string> buildEnv(
+    const Request &req,
+    const std::string &script_path,
+    const ServerConfig &config,
+    const CgiConfig &cgiConfig)
+{
+    (void)config;
+    std::vector<std::string> env;
+
+    addBasicVars(req, env);
+    addScriptVars(script_path, env);
+    addUriVars(req, env);
+    addContentVars(req, env);
+    addHttpHeaders(req, env);
+
+    if (cgiConfig.extension == ".php")
+    {
+        addPhpVars(env);
+    }
+    // else if (cgiConfig.cgi_extension == ".py")
+    // {
+    //     addPythonVars(env);
+    // }
+
+    return env;
+}
+
+/*
 static std::vector<std::string> buildEnv(const Request &req,
-    const std::string &script_path, const ServerConfig &config)
+                                         const std::string &script_path, const ServerConfig &config)
 {
     (void)config;
     std::vector<std::string> env;
@@ -66,15 +159,19 @@ static std::vector<std::string> buildEnv(const Request &req,
     env.push_back(std::string("SERVER_SOFTWARE=webserv/1.0"));
 
     // Add HTTP_ headers as CGI expects (HTTP_HEADERNAME)
-    for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it) {
+    for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it)
+    {
         std::string key = it->first;
         std::string val = it->second;
         // Normalize key: make uppercase, replace '-' with '_'
         std::string up;
-        for (size_t i = 0; i < key.size(); ++i) {
+        for (size_t i = 0; i < key.size(); ++i)
+        {
             char c = key[i];
-            if (c == '-') up += '_';
-            else up += (char)toupper(c);
+            if (c == '-')
+                up += '_';
+            else
+                up += (char)toupper(c);
         }
         std::string envname = std::string("HTTP_") + up + "=" + val;
         env.push_back(envname);
@@ -84,11 +181,15 @@ static std::vector<std::string> buildEnv(const Request &req,
 
     return env;
 }
+    */
 
-CgiResult CgiHandler::execute(const Request& req,
-                              const std::string& script_path,
-                              const ServerConfig& config)
+CgiResult CgiHandler::execute(const Request &req,
+                              const std::string &script_path,
+                              const ServerConfig &config,
+                              const LocationConfig &loc,
+                              const CgiConfig &cgiConfig)
 {
+    (void)loc;
     CgiResult result;
     result.exit_status = -1;
     result.raw_output = "";
@@ -99,27 +200,30 @@ CgiResult CgiHandler::execute(const Request& req,
     {
         result.raw_output =
             "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
-            "CGI script not found: " + script_path + "\n";
+            "CGI script not found: " +
+            script_path + "\n";
         return result;
     }
 
     /*
-    
+
     criar uma funcao auxi, para isto também
-    
+
     */
 
     // ------------------ INTERPRETER ---------------------
     std::string interpreter;
-    for (size_t i = 0; i < config.locations.size(); i++)
+    if (cgiConfig.path.empty())
     {
-        if (script_path.find(config.locations[i].root) == 0 &&
-            !config.locations[i].cgi_path.empty())
-        {
-            interpreter = config.locations[i].cgi_path;
-            break;
-        }
+        if (cgiConfig.extension == ".php")
+            interpreter = "/usr/bin/php-cgi";
+        else if (cgiConfig.extension == ".py")
+            interpreter = "/usr/bin/python3";
     }
+    else
+        interpreter = cgiConfig.path;
+
+    Logger::log(Logger::INFO, "CGI Interpreter: " + interpreter);
 
     if (interpreter.empty())
     {
@@ -137,23 +241,20 @@ CgiResult CgiHandler::execute(const Request& req,
         return result;
     }
 
-
     /*
-    
     criar BUILD ENV e ARGV  para cada tipo de extencao.
     criar em remover este codigo desta funcao e criar uma funcao aux
-
     */
 
     // ------------------ BUILD ENV -----------------------
-    std::vector<std::string> env_strings = buildEnv(req, script_path, config);
-    std::vector<char*> envp;
+    std::vector<std::string> env_strings = buildEnv(req, script_path, config, cgiConfig);
+    std::vector<char *> envp;
     for (size_t i = 0; i < env_strings.size(); i++)
         envp.push_back(strdup(env_strings[i].c_str()));
     envp.push_back(NULL);
 
     // ------------------ ARGV ----------------------------
-    std::vector<char*> argv_vec;
+    std::vector<char *> argv_vec;
     argv_vec.push_back(strdup(interpreter.c_str()));
     argv_vec.push_back(strdup(script_path.c_str()));
     argv_vec.push_back(NULL);
@@ -163,10 +264,6 @@ CgiResult CgiHandler::execute(const Request& req,
 
     bool early_error = false;
     std::string early_error_response;
-
-
-
-
 
     // -------------- CREATE PIPES ------------------------
     if (pipe(stdin_pipe) < 0 || pipe(stdout_pipe) < 0)
@@ -284,8 +381,6 @@ CgiResult CgiHandler::execute(const Request& req,
         result.raw_output = output;
     }
 
-
-
     /*
             pode ser outra funcao auxi
     */
@@ -309,7 +404,8 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
     // Tenta CRLF primeiro (padrão CGI)
     size_t pos = raw.find("\r\n\r\n");
 
-    std::cout << "\nRaw CGI Output:\n" << raw << std::endl;
+    std::cout << "\nRaw CGI Output:\n"
+              << raw << std::endl;
 
     // Se não existir, tenta LF-LF (Python print padrão)
     if (pos == std::string::npos)
@@ -329,19 +425,19 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
     }
 
     std::string header_part = raw.substr(0, pos);
-    std::string body_part   = raw.substr(pos + 4);
+    std::string body_part = raw.substr(pos + 4);
 
     res.body = body_part;
 
     // 2. parse headers linha por linha
-    std::istringstream  iss(header_part);
+    std::istringstream iss(header_part);
     std::string line;
     bool has_status = false;
 
     while (std::getline(iss, line))
     {
-        if (line.size() && line[line.size()-1] == '\r')
-            line.erase(line.size()-1);
+        if (line.size() && line[line.size() - 1] == '\r')
+            line.erase(line.size() - 1);
 
         if (!line.size())
             continue;
@@ -353,11 +449,13 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
         std::string key = line.substr(0, sep);
         std::string val = trim(line.substr(sep + 1));
 
-        if (key == "Status") {
+        if (key == "Status")
+        {
             has_status = true;
             res.status = atoi(val.c_str());
         }
-        else {
+        else
+        {
             res.headers[key] = val;
         }
     }
@@ -373,17 +471,19 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
 }
 
 Response CgiHandler::handleCgiRequest(const Request &req,
-                                  const ServerConfig &config,
-                                  const LocationConfig &loc)
+                                      const ServerConfig &config,
+                                      const LocationConfig &loc,
+                                      const CgiConfig &cgiConfig)
 {
-    Response    res;
+    Response res;
+    //(void) cgiConfig;
 
     // monta caminho real do script
 
     std::string script_path = loc.root + req.uri.substr(loc.path.size());
 
-    //passar de alguma forma a extencao
-    CgiResult   result = CgiHandler::execute(req, script_path, config);
+    // passar de alguma forma a extencao
+    CgiResult result = CgiHandler::execute(req, script_path, config, loc, cgiConfig);
 
     if (result.exit_status == 504)
     {
