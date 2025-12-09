@@ -18,6 +18,7 @@ SRCS = \
     src/http/HttpParser.cpp \
     src/http/Router.cpp \
     src/http/Response.cpp \
+    src/session/SessionManager.cpp \
     src/config/ConfigParser.cpp \
     src/cgi/CgiHandler.cpp \
     src/utils/Logger.cpp \

@@ -8,7 +8,6 @@
 #include "../session/SessionManager.hpp"
 
 volatile bool   g_running = true;
-static SessionManager  g_sessions(300);
 
 MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
 {

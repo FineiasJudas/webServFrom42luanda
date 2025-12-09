@@ -11,6 +11,8 @@ class   Router
     public:
         static Response route(const Request &req, const ServerConfig &config);
 
+    private:
+        static bool handleSession(Request &req, Response &res);
 };
 
 
