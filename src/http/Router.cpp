@@ -273,7 +273,10 @@ Response    Router::route(const Request &req, const ServerConfig &config)
 
     // 3) CGI (se extensão combinou)
     //return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi_configs[0]);
+    
     std::string ext = getExtension(rq.uri);
+    Logger::log(Logger::INFO, "URI:::: " + rq.uri);
+    Logger::log(Logger::INFO, "CGI: " + ext);
     for (size_t i = 0; i < loc.cgi.size(); i++)
     {
         if (ext == loc.cgi[i].extension)
