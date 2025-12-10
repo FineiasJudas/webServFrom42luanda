@@ -12,13 +12,16 @@ struct SessionData
 {
     int visits;
     time_t lastSeen;
+    std::string csrf;
+    bool logged;
+    SessionData() : visits(0), lastSeen(0), csrf(""), logged(false) {}
 };
 
 class SessionManager
 {
 private:
     std::map<std::string, SessionData> sessions;
-    int timeout; // segundos
+    int timeout;
 
 public:
     SessionManager(int timeoutSeconds);
@@ -27,6 +30,9 @@ public:
     bool hasSession(const std::string &sid) const;
     SessionData &getSession(const std::string &sid);
     void updateSession(const std::string &sid);
+    void saveToFile(const std::string &path);
+    void loadFromFile(const std::string &path);
+
 
     void cleanup(); // remove sessões expiradas
 };

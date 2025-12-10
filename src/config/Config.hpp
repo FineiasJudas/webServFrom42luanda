@@ -3,13 +3,13 @@
 
 #include "../../includes/Headers.hpp"
 
-struct CgiConfig
+struct  CgiConfig
 {
     std::string extension;
     std::string path;
 };
 
-struct LocationConfig
+struct  LocationConfig
 {
     std::string path;
     std::string root;
@@ -32,17 +32,17 @@ struct LocationConfig
     {}
 };
 
-struct ServerConfig
+struct  ServerConfig
 {
-    std::vector<std::string> listen;
-    std::vector<std::string> server_names;
-    std::map<int, std::string> error_pages;
+    std::vector<std::string>    listen;
+    std::vector<std::string>    server_names;
+    std::map<int, std::string>  error_pages;
     std::vector<LocationConfig> locations;
-    size_t max_body_size;
+    size_t  max_body_size;
     std::string root;
-    bool auto_index_set;
-    bool auto_index;
-    int cgi_timeout;
+    bool    auto_index_set;
+    bool    auto_index;
+    int     cgi_timeout;
 
     ServerConfig()
         : max_body_size(1024 * 1024),
@@ -53,10 +53,10 @@ struct ServerConfig
     {}
 };
 
-class Config
+class   Config
 {
-public:
-    std::vector<ServerConfig> servers;
+    public:
+        std::vector<ServerConfig>   servers;
 };
 
 #endif

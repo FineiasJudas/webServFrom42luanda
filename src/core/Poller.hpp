@@ -16,7 +16,7 @@ struct  PollEvent
 class   Poller
 {
     private:
-        int epfd;
+        int     epfd;
         std::vector<struct epoll_event> eventBuffer;
 
     public:

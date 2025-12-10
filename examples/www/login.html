@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+    <meta charset="UTF-8">
+    <title>Login</title>
+<body>
+    <h1>Login</h1>
+
+    <form method="POST" action="/login">
+        <input type="text" name="user" placeholder="Nome" required><br><br>
+        <input type="password" name="pass" placeholder="Senha" required><br><br>
+
+        <!-- token será preenchido via JS -->
+        <input id="csrf" type="hidden" name="csrf">
+
+        <button type="submit">Entrar</button><br><br>
+        <button onclick="home()">Página inicial</button>
+    </form>
+
+    <script>
+        fetch("/csrf").then(r => r.text()).then(t => {
+            document.getElementById("csrf").value = t;
+            console.log("CSRF token set:", t);
+        });
+
+        function home() { window.location = "/"; }
+
+    </script>
+</body>
+</html>

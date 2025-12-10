@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Sessão</title>
+</head>
+<body >
+
+<h1>Página Protegida</h1>
+
+<div id="area"></div>
+<button onclick="home()">Página inicial</button>
+
+<script>
+
+fetch("/session")
+    .then(r => r.text())
+    .then(html => {
+        document.getElementById("area").innerHTML = html;
+    });
+
+function logout()
+{
+    fetch("/logout", { method: "POST" })
+        .then(r => r.text())
+        .then(t => {
+            alert("Logout ok!");
+            window.location = "/login.html";
+        });
+}
+
+function home() { window.location = "/"; }
+
+function login() { window.location = "/login.html"; }
+</script>
+
+</body>
+</html>

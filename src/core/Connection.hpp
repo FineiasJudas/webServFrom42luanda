@@ -9,18 +9,18 @@
 class Connection
 {
     private:
-        int fd;
-        int listenFd;             // listen socket que originou esta conexão
-        ServerConfig* server;      // server escolhido pelo Host
-        bool closeAfterSend;
+        int     fd;
+        int     listenFd;
+        ServerConfig    *server;
+        bool    closeAfterSend;
 
-        Buffer input_buffer;
-        Buffer output_buffer;
+        Buffer  input_buffer;
+        Buffer  output_buffer;
 
     public:
-        time_t last_activity_time;
-        bool waiting_for_write;
-        time_t write_start_time;
+        time_t  last_activity_time;
+        bool    waiting_for_write;
+        time_t  write_start_time;
 
     public:
         Connection(int fd);
@@ -40,7 +40,7 @@ class Connection
         bool    shouldCloseAfterSend() const;
 
         ssize_t     readFromFd();
-        ssize_t     writeToFd(const char* data, size_t size);
+        ssize_t     writeToFd(const char *data, size_t size);
 
         void    updateActivity();
 

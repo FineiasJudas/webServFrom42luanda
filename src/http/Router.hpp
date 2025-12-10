@@ -12,7 +12,13 @@ class   Router
         static Response route(const Request &req, const ServerConfig &config);
 
     private:
-        static bool handleSession(Request &req, Response &res);
+        static bool handleSession(const Request &req, Response &res);
+        static bool handleCsrf(const Request &req, Response &res);
+        static bool handleLogin(const Request &req, Response &res);
+        static bool handleLogout(const Request &req, Response &res);
+
+
+
 };
 
 

@@ -79,7 +79,6 @@ void    MasterServer::createListenSockets(const std::vector<ServerConfig> &serve
             for (std::map<int, ServerConfig *>::iterator it = listenFdToServers.begin();
                  it != listenFdToServers.end(); ++it)
             {
-                // não guardamos o porto no map, por isso assumimos que para cada fd já criado
                 // vamos verificar getsockname
                 struct sockaddr_in  addr;
 
@@ -177,7 +176,6 @@ ServerConfig    *MasterServer::selectServerForRequest(const Request &req, int li
     return (defaultServer);
 }
 
-
 void    MasterServer::handleAccept(int listenFd)
 {
     int     flags;
@@ -185,12 +183,7 @@ void    MasterServer::handleAccept(int listenFd)
 
     clientFd = accept(listenFd, NULL, NULL);
     if (clientFd < 0)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return ;
-        Logger::log(Logger::ERROR, "accept() error: " + Utils::toString(errno));
         return ;
-    }
 
     flags = fcntl(clientFd, F_GETFL, 0);
     if (flags < 0)
@@ -427,7 +420,7 @@ void    MasterServer::run()
         std::vector<PollEvent> events = poller.waitEvents(1000);
 
         if (!g_running)
-            break;
+            break ;
 
         for (size_t i = 0; i < events.size(); ++i)
         {

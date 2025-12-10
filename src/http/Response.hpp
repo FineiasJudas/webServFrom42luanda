@@ -62,4 +62,8 @@ Response forbiddenPageResponse(const ServerConfig &config);
 Response methodPostMultipart(const Request &req,
                              const std::string &uploadDir);
 
+std::string  readFile(const std::string &path);
+bool    fileExists(const std::string &path);
+bool    dirExists(const std::string &path);
+
 #endif
