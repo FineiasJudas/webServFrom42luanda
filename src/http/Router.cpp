@@ -277,6 +277,10 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     std::string ext = getExtension(rq.uri);
     Logger::log(Logger::INFO, "URI:::: " + rq.uri);
     Logger::log(Logger::INFO, "CGI: " + ext);
+      for (std::map<std::string, std::string>::const_iterator it = req.query.begin(); it != req.query.end(); ++it)
+    {
+        std::cout << "Query Param: " << it->first << " = " << it->second << std::endl;
+    }
     for (size_t i = 0; i < loc.cgi.size(); i++)
     {
         if (ext == loc.cgi[i].extension)

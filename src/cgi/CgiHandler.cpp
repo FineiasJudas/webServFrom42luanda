@@ -479,6 +479,7 @@ Response CgiHandler::handleCgiRequest(const Request &req,
     //(void) cgiConfig;
 
     // monta caminho real do script
+  
 
     std::string script_path = loc.root + req.uri.substr(loc.path.size());
 
