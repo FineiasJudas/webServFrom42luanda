@@ -32,7 +32,6 @@ const LocationConfig    &findBestLocation(const std::string& uri,
             continue ;
 
         // prefix match
-        //std::cout << "\nEncontar " << uri << " no PATH " << loc.path << std::endl;
         if (uri.find(loc.path) == 0)
         {
             if (loc.path.size() > bestLen)
@@ -167,72 +166,19 @@ Response    handleDeleteFile(const Request &req)
     return r;
 }
 
-bool Router::handleSession(Request &req, Response &res)
-{
-    if (req.method != "GET" || req.uri != "/session")
-        return false;
-
-    g_sessions.cleanup(); // limpa sessões expiradas
-
-    std::string sid;
-
-    // 1. Ler cookie
-    if (req.headers.count("Cookie"))
-    {
-        std::string ck = req.headers["Cookie"];
-        size_t pos = ck.find("session_id=");
-
-        if (pos != std::string::npos)
-        {
-            sid = ck.substr(pos + 11);
-            size_t semi = sid.find(';');
-            if (semi != std::string::npos)
-                sid = sid.substr(0, semi);
-        }
-    }
-
-    // 2. Sessão já existe?
-    if (!sid.empty() && g_sessions.hasSession(sid))
-    {
-        SessionData &d = g_sessions.getSession(sid);
-        g_sessions.updateSession(sid);
-
-        std::string body = "<h1>Bem-vindo novamente!</h1>"
-                           "<p>Visitas: " + Utils::toString(d.visits) + "</p>";
-
-        res.status = 200;
-        res.body = body;
-        res.headers["Content-Type"] = "text/html";
-        res.headers["Content-Length"] = Utils::toString(body.size());
-        return true;
-    }
-
-    // 3. Criar nova sessão
-    sid = g_sessions.createSession();
-
-    std::string body = "<h1>Nova sessão criada!</h1><p>Visitas: 1</p>";
-
-    res.status = 200;
-    res.body = body;
-    res.headers["Content-Type"] = "text/html";
-    res.headers["Set-Cookie"] = "session_id=" + sid + "; Path=/; HttpOnly";
-    res.headers["Content-Length"] = Utils::toString(body.size());
-
-    return true;
-}
-
 Response    Router::route(const Request &req, const ServerConfig &config)
 {
-    // ============================================================================
     // 0) ENDPOINTS ESPECIAIS SEM PASSAR POR LOCATION
     // (Eles sempre devem ser processados *antes* do findBestLocation)
-    // ============================================================================
     
     Response r;
     Request rq = req;
 
-    if (Router::handleSession(rq, r))
-        return r;
+    // Rotas especiais (antes de location)
+    if (handleCsrf(req, r)) return r;
+    if (handleLogin(req, r)) return r;
+    if (handleLogout(req, r)) return r;
+    if (handleSession(req, r)) return r;
 
     if (rq.method == "GET" && rq.uri == "/uploads-list")
         return handleUploadsList(rq);
@@ -248,7 +194,6 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     const LocationConfig &loc = findBestLocation(rq.uri, config);
     Logger::log(Logger::INFO, "Rota encontrada: " + loc.path);
 
-
     // 1.5) Redirecionamento
     if (loc.redirect_code != 0)
     {
@@ -256,24 +201,18 @@ Response    Router::route(const Request &req, const ServerConfig &config)
 
         r.status = loc.redirect_code;
         r.headers["Location"] = loc.redirect_url;
-
         r.body = "<h1>" + Utils::toString(loc.redirect_code)
                  + " Redirect</h1><p>→ " + loc.redirect_url + "</p>";
-
         r.headers["Content-Length"] = Utils::toString(r.body.size());
         r.headers["Content-Type"] = "text/html";
-        return r;
+        return (r);
     }
-
 
     // 2) Proteger contra directory traversal
     if (rq.uri.find("..") != std::string::npos)
         return forbiddenPageResponse(config);
 
-
     // 3) CGI (se extensão combinou)
-    //return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi_configs[0]);
-    
     std::string ext = getExtension(rq.uri);
     Logger::log(Logger::INFO, "URI:::: " + rq.uri);
     Logger::log(Logger::INFO, "CGI: " + ext);
@@ -286,17 +225,9 @@ Response    Router::route(const Request &req, const ServerConfig &config)
         if (ext == loc.cgi[i].extension)
         {
             Logger::log(Logger::INFO, "CGI para extensão: " + ext);
-            return CgiHandler::handleCgiRequest(
-                req, config, loc, loc.cgi[i]
-            );
+            return CgiHandler::handleCgiRequest(req, config, loc, loc.cgi[i]);
         }
     }
-    /*std::cout << " Extencion: " << ext << "loc.cgi_extension" << loc.cgi_extension << std::endl;
-    if (!loc.cgi_extension.empty() && ext == loc.cgi_extension) // || ext == "php" ...
-    {
-        return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi_configs[0]);
-    }*/
-
 
     // 4) Resolver caminho real de arquivo
     std::string root = loc.root.empty() ? config.root : loc.root;
@@ -308,9 +239,7 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     else
         path += rq.uri;
 
-    // ============================================================================
     // 5) Métodos HTTP
-    // ============================================================================
 
     // GET
     if (rq.method == "GET")
@@ -321,7 +250,6 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     {
         if (!loc.upload_dir.empty())
             return methodPostMultipart(rq, loc.upload_dir);
-
         return methodPost(rq, config, path);
     }
 
@@ -329,10 +257,6 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     if (rq.method == "DELETE")
         return methodDelete(path, config);
 
-
-    // ============================================================================
     // Método não permitido
-    // ============================================================================
-
     return notAloweMethodResponse(config);
 }

@@ -19,17 +19,12 @@ class   MasterServer
 
     private:
         Poller  poller;
-
-        // listen fd -> vector de ServerConfig* que ouvem nessa porta
         std::map<int, ServerConfig *> listenFdToServers;
-
-        // client fd -> Connection*
         std::map<int, Connection*> connections;
 
-        // tempoouts (segundos)
-        int     read_timeout;       // tempo máximo sem completar um request
-        int     write_timeout;      // tempo máximo bloqueado em escrita
-        int     keepalive_timeout;  // tempo de keep-alive entre requests
+        int     read_timeout;
+        int     write_timeout;
+        int     keepalive_timeout;
 
     private:
         void    createListenSockets(const std::vector<ServerConfig> &servers);
@@ -43,8 +38,6 @@ class   MasterServer
         ServerConfig*   selectServerForRequest(const Request &req, int listenFd);
 
         void    checkTimeouts();
-
-        // util
         bool    isListenFd(int fd) const;
         int     parsePortFromListenString(const std::string &s) const;
 };

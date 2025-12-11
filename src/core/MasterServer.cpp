@@ -3,6 +3,7 @@
 #include "../utils/Utils.hpp"
 #include "../http/HttpParser.hpp"
 #include "../http/Router.hpp"
+#include "../../includes/Headers.hpp"
 #include "../exceptions/WebServException.hpp"
 #include "./../utils/keywords.hpp"
 #include "../session/SessionManager.hpp"
@@ -79,7 +80,6 @@ void    MasterServer::createListenSockets(const std::vector<ServerConfig> &serve
             for (std::map<int, ServerConfig *>::iterator it = listenFdToServers.begin();
                  it != listenFdToServers.end(); ++it)
             {
-                // não guardamos o porto no map, por isso assumimos que para cada fd já criado
                 // vamos verificar getsockname
                 struct sockaddr_in  addr;
 
@@ -149,7 +149,7 @@ int MasterServer::createListenSocketForPort(int port)
         close(fd);
         return (-1);
     }
-    if (listen(fd, SOMAXCONN) < 0)
+    if (listen(fd, MAX_EVENTS) < 0)
     {
         Logger::log(Logger::ERROR, "listen() fail: " + Utils::toString(errno));
         close(fd);
@@ -177,7 +177,6 @@ ServerConfig    *MasterServer::selectServerForRequest(const Request &req, int li
     return (defaultServer);
 }
 
-
 void    MasterServer::handleAccept(int listenFd)
 {
     int     flags;
@@ -185,12 +184,7 @@ void    MasterServer::handleAccept(int listenFd)
 
     clientFd = accept(listenFd, NULL, NULL);
     if (clientFd < 0)
-    {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            return ;
-        Logger::log(Logger::ERROR, "accept() error: " + Utils::toString(errno));
         return ;
-    }
 
     flags = fcntl(clientFd, F_GETFL, 0);
     if (flags < 0)
@@ -244,12 +238,12 @@ void    MasterServer::handleRead(int clientFd)
             closeConnection(clientFd);
             return ;
         }
+        else if (n == -2)
+            break ;
         else
         {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                break ;
             closeConnection(clientFd);
-            return ;
+            return;
         }
     }
 
@@ -326,7 +320,7 @@ void    MasterServer::handleRead(int clientFd)
     }
 
     if (processed > 0)
-        poller.modifyFd(clientFd, EPOLLOUT);
+        poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
 }
 
 
@@ -354,7 +348,6 @@ void    MasterServer::handleWrite(int clientFd)
     sent = conn->writeToFd(out.data(), out.size());
     if (sent > 0)
         out.consume(sent);
-
     if (conn->shouldCloseAfterSend() && out.empty())
     {
         closeConnection(clientFd);
@@ -427,7 +420,7 @@ void    MasterServer::run()
         std::vector<PollEvent> events = poller.waitEvents(1000);
 
         if (!g_running)
-            break;
+            break ;
 
         for (size_t i = 0; i < events.size(); ++i)
         {

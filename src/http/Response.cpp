@@ -5,21 +5,21 @@
 #include "Request.hpp"
 #include <dirent.h>
 
-static bool fileExists(const std::string &path)
+bool fileExists(const std::string &path)
 {
     struct stat s;
 
     return (stat(path.c_str(), &s) == 0 && S_ISREG(s.st_mode));
 }
 
-static bool dirExists(const std::string &path)
+bool dirExists(const std::string &path)
 {
     struct stat s;
 
     return (stat(path.c_str(), &s) == 0 && S_ISDIR(s.st_mode));
 }
 
-static std::string  readFile(const std::string &path)
+std::string  readFile(const std::string &path)
 {
     std::ifstream f(path.c_str(), std::ios::in | std::ios::binary);
     if (!f.is_open())

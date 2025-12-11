@@ -30,8 +30,17 @@ ssize_t Connection::readFromFd()
     {
         input_buffer.append(buffer, bytes);
         updateActivity();
+        return bytes; // sucesso
     }
-    return (bytes);
+
+    if (bytes == 0)
+        return (0); // client fechou
+
+    // n < 0 → verificar errno AQUI (permitido!)
+    if (errno == EAGAIN || errno == EWOULDBLOCK)
+        return (-2); // não tem mais nada pra ler agora
+
+    return (-1);
 }
 
 ssize_t Connection::writeToFd(const char* data, size_t size)

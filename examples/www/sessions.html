@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Sessão</title>
+    <style>
+    :root
+    {
+      --cor-primaria: #4f46e5;
+      --cor-fundo: #0e1529;
+      --cor-texto: #e5e7eb;
+      --cor-texto-sec: #cbd5e1;
+      --bordas: rgba(255,255,255,0.1);
+    }
+
+    *
+    {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body
+    {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      background: #f3f4f6;
+      color: #111;
+      line-height: 1.6;
+    }
+
+    .navbar {
+      background: var(--cor-fundo);
+      color: #fff;
+      border-bottom: 1px solid var(--bordas);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 70px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      color: #fff;
+      font-weight: 700;
+      font-size: 25px;
+    }
+
+    .loginDiv
+    {
+        width: 340px;
+      max-width: 400px;
+      background-color: #272d3d;
+      color: var(--cor-texto);
+      margin: 80px auto;
+      padding: 30px 40px 100px 40px;
+      border: 1px solid var(--bordas);
+      border-radius: 5px;
+      text-align: center;
+      border-radius: 10px;
+    }
+
+    .home, .logintbtn
+    {
+      padding: 10px 15px;
+      margin-top: 10px;
+      background-color: #4f46e5;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .home:hover, .logintbtn:hover
+    {
+      background-color: #3730a3;
+    }
+
+    .logoutbtn
+    {
+        background-color: #dc2626;
+        padding: 10px 15px;
+        margin-top: 10px;
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+
+    .updatetbtn
+    {
+        background-color: #16a34a;
+        padding: 10px 15px;
+        margin-top: 10px;
+        background-color: #4f46e5;
+        color: white;
+        border: none;
+        cursor: pointer;
+    }
+
+    .statusR
+    {
+      color: #dc2626;
+      font-size: 18px;
+      margin-bottom: 15px;
+    }
+
+    .statusG
+    {
+      color: #1c8018;
+      font-size: 20px;
+      margin-bottom: 15px;
+    }
+
+    .error
+    {
+      color: #dc2626;
+      font-size: 50px;
+      margin-bottom: 15px;
+    }
+
+
+    </style>
+</head>
+<body >
+
+<div class="loginDiv">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px;">
+        <img src="./3u-server-svgrepo-com.png" alt="svServer" style="width: 32px; height: 28px;">
+        <h1>Sessões</h1>
+    </div>
+
+    <div id="area"></div>
+    <button onclick="home()" class="home">Página inicial</button>
+    </div>
+<script>
+
+fetch("/session")
+    .then(r => r.text())
+    .then(html => {
+        document.getElementById("area").innerHTML = html;
+    });
+
+function logout()
+{
+    fetch("/logout", { method: "POST" })
+        .then(r => r.text())
+        .then(t => {
+            alert("Logout ok!");
+            window.location = "/login.html";
+        });
+}
+
+function home() { window.location = "/"; }
+
+function login() { window.location = "/login.html"; }
+
+function updatepPage()
+{
+    fetch("/session")
+    .then(r => r.text())
+    .then(html => {
+        document.getElementById("area").innerHTML = html;
+    });
+}
+</script>
+
+</body>
+</html>

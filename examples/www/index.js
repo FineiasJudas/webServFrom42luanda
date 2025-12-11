@@ -15,5 +15,8 @@ document.querySelectorAll('.menu li').forEach(item => {
         } else if (item.id == 'contato') {
             window.location.href = './contact.html';
         }
+        else if (item.id == 'sessions') {
+            window.location.href = './sessions.html';
+        }
     });
 });
