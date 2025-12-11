@@ -126,7 +126,7 @@ bool    Router::handleSession(const Request &req, Response &res)
     if (sid.empty() || !g_sessions.hasSession(sid))
     {
         res.status = 403;
-        res.body = "<h1>403 - Sessão inexistente</h1><button onclick=\"login()\">Login</button><br><br>";
+        res.body = "<h1 class=\"error\">403</h1><p class=\"statusR\">Sessão inexistente<p><button onclick=\"login()\" class=\"logintbtn\">Login</button><br><br>";
         res.headers["Content-Type"] = "text/html";
         res.headers["Content-Length"] = Utils::toString(res.body.size());
         return true;
@@ -136,8 +136,10 @@ bool    Router::handleSession(const Request &req, Response &res)
     g_sessions.updateSession(sid);
 
     res.status = 200;
-    res.body = "<p>Sessão ativa!</p>"
-               "<p>Visitas: " + Utils::toString(data.visits) + "</p><button onclick=\"logout()\">Logout</button><br><br>";
+    res.body = "<p class=\"statusG\">Sessão ativa!</p>"
+               "<p>Visitas: " + Utils::toString(data.visits)
+               + "</p><button onclick=\"updatepPage()\" class=\"updatetbtn\">Atualizar</button><br><br>"
+               "</p><button onclick=\"logout()\" class=\"logoutbtn\">Logout</button><br><br>";
     res.headers["Content-Type"] = "text/html";
     res.headers["Content-Length"] = Utils::toString(res.body.size());
     return true;
@@ -196,7 +198,10 @@ bool    Router::handleLogin(const Request &req, Response &res)
     std::string sid = g_sessions.createSession();
 
     res.status = 200;
-    res.body = "<h1>Login OK!</h1><a href=\"/sessions.html\">Prosseguir</a>";
+    if (fileExists("examples/www/sessions.html"))
+        res.body = readFile("examples/www/sessions.html");
+    else
+        res.body = "<h1>Login OK!</h1><a href=\"/sessions.html\">Prosseguir</a>";
     res.headers["Set-Cookie"] = "session_id=" + sid + "; Path=/; HttpOnly";
     res.headers["Content-Type"] = "text/html";
     res.headers["Content-Length"] = Utils::toString(res.body.size());

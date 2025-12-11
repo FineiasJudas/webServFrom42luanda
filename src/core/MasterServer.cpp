@@ -237,12 +237,12 @@ void    MasterServer::handleRead(int clientFd)
             closeConnection(clientFd);
             return ;
         }
+        else if (n == -2)
+            break ;
         else
         {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                break ;
             closeConnection(clientFd);
-            return ;
+            return;
         }
     }
 
@@ -319,7 +319,7 @@ void    MasterServer::handleRead(int clientFd)
     }
 
     if (processed > 0)
-        poller.modifyFd(clientFd, EPOLLOUT);
+        poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
 }
 
 
@@ -347,7 +347,6 @@ void    MasterServer::handleWrite(int clientFd)
     sent = conn->writeToFd(out.data(), out.size());
     if (sent > 0)
         out.consume(sent);
-
     if (conn->shouldCloseAfterSend() && out.empty())
     {
         closeConnection(clientFd);
