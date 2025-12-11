@@ -4,8 +4,8 @@
 /* C/C++ std headers */
 #include <iostream>
 #include <string>
-#include <vector>
-#include <map>
+#include <vector> 
+#include <map> 
 #include <sstream>
 #include <stdexcept>
 #include <algorithm>
@@ -27,7 +27,8 @@
 
 #define MAX_EVENTS 64
 
-enum CgiType {
+enum CgiType
+{
     CGI_PHP,
     CGI_PYTHON,
     CGI_UNKNOWN

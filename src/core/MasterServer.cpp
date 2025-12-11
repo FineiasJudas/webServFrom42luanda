@@ -3,6 +3,7 @@
 #include "../utils/Utils.hpp"
 #include "../http/HttpParser.hpp"
 #include "../http/Router.hpp"
+#include "../../includes/Headers.hpp"
 #include "../exceptions/WebServException.hpp"
 #include "./../utils/keywords.hpp"
 #include "../session/SessionManager.hpp"
@@ -148,7 +149,7 @@ int MasterServer::createListenSocketForPort(int port)
         close(fd);
         return (-1);
     }
-    if (listen(fd, SOMAXCONN) < 0)
+    if (listen(fd, MAX_EVENTS) < 0)
     {
         Logger::log(Logger::ERROR, "listen() fail: " + Utils::toString(errno));
         close(fd);

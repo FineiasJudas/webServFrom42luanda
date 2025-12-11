@@ -126,7 +126,8 @@ bool    Router::handleSession(const Request &req, Response &res)
     if (sid.empty() || !g_sessions.hasSession(sid))
     {
         res.status = 403;
-        res.body = "<h1 class=\"error\">403</h1><p class=\"statusR\">Sessão inexistente<p><button onclick=\"login()\" class=\"logintbtn\">Login</button><br><br>";
+        res.body = "<h1 class=\"error\">403</h1><p class=\"statusR\">Sessão inexistente<p>"
+                "<button onclick=\"login()\" class=\"logintbtn\">Login</button><br><br>";
         res.headers["Content-Type"] = "text/html";
         res.headers["Content-Length"] = Utils::toString(res.body.size());
         return true;
@@ -136,7 +137,8 @@ bool    Router::handleSession(const Request &req, Response &res)
     g_sessions.updateSession(sid);
 
     res.status = 200;
-    res.body = "<p class=\"statusG\">Sessão ativa!</p>"
+    res.body = "<p style=\"width: 250px; margin-top: 10px; line-height: 1.4;margin-bottom: 10px;\">Observe as informação sobre as sessão de usuário</p>"
+                "<p class=\"statusG\">Sessão ativa!</p>"
                "<p>Visitas: " + Utils::toString(data.visits)
                + "</p><button onclick=\"updatepPage()\" class=\"updatetbtn\">Atualizar</button><br><br>"
                "</p><button onclick=\"logout()\" class=\"logoutbtn\">Logout</button><br><br>";
