@@ -255,8 +255,19 @@ CgiResult CgiHandler::execute(const Request &req,
 
     // ------------------ ARGV ----------------------------
     std::vector<char *> argv_vec;
+    if (interpreter.empty()){
+        std::cout << "INTERPERTADOR VAZIO NAO!!!!!" << std::endl;
+    }
     argv_vec.push_back(strdup(interpreter.c_str()));
+
     argv_vec.push_back(strdup(script_path.c_str()));
+     for (std::map<std::string, std::string>::const_iterator it = req.query.begin();
+         it != req.query.end();
+         ++it)
+    {
+        std::string pair = it->first + "=" + it->second;
+        argv_vec.push_back(strdup(pair.c_str()));
+    }
     argv_vec.push_back(NULL);
 
     int stdin_pipe[2];
@@ -479,8 +490,13 @@ Response CgiHandler::handleCgiRequest(const Request &req,
     //(void) cgiConfig;
 
     // monta caminho real do script
+  
 
-    std::string script_path = loc.root + req.uri.substr(loc.path.size());
+//    std::string script_path = loc.root + req.uri.substr(loc.path.size());
+    std::string script_path = loc.root + req.path.substr(loc.path.size());
+    std::cout << "SCRIPT_PATH :: " << script_path << std::endl;
+
+
 
     // passar de alguma forma a extencao
     CgiResult result = CgiHandler::execute(req, script_path, config, loc, cgiConfig);

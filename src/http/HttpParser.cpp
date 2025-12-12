@@ -1,7 +1,8 @@
 #include "HttpParser.hpp"
+#include "../utils/Utils.hpp"
 #include <cstdlib>
 
-static std::string  trim(const std::string &s)
+static std::string trim(const std::string &s)
 {
     size_t a = s.find_first_not_of(" \t\r\n");
 
@@ -13,7 +14,7 @@ static std::string  trim(const std::string &s)
     return s.substr(a, b - a + 1);
 }
 
-bool    HttpParser::hasCompleteRequest(const Buffer &buffer)
+bool HttpParser::hasCompleteRequest(const Buffer &buffer)
 {
     std::string data = buffer.toString();
     size_t header_end = data.find("\r\n\r\n");
@@ -41,7 +42,74 @@ bool    HttpParser::hasCompleteRequest(const Buffer &buffer)
     return (true);
 }
 
-bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
+std::string HttpParser::urlDecode(const std::string &str)
+{
+    std::string result;
+    char hex[3] = {0};
+
+    for (size_t i = 0; i < str.size(); ++i)
+    {
+        if (str[i] == '+')
+        {
+            result += ' ';
+        }
+        else if (str[i] == '%' && i + 2 < str.size())
+        {
+            hex[0] = str[i + 1];
+            hex[1] = str[i + 2];
+            char decoded = static_cast<char>(strtol(hex, NULL, 16));
+            result += decoded;
+            i += 2;
+        }
+        else
+        {
+            result += str[i];
+        }
+    }
+
+    return result;
+}
+
+void HttpParser::parseQueryParams(Request &req)
+{
+    size_t pos = req.uri.find('?');
+    std::string temp_query;
+
+    if (pos != std::string::npos)
+    {
+        req.path = req.uri.substr(0, pos);
+        temp_query = req.uri.substr(pos + 1);
+        req.query_string = temp_query;
+    }
+    else
+    {
+        req.path = req.uri;
+        req.query_string.clear();
+    }
+
+    if (req.query_string.empty())
+        return;
+
+    std::vector<std::string> pairs = Utils::split(req.query_string, '&');
+
+    for (size_t i = 0; i < pairs.size(); ++i)
+    {
+        size_t eq = pairs[i].find('=');
+        if (eq != std::string::npos)
+        {
+            std::string key = pairs[i].substr(0, eq);
+            std::string value = pairs[i].substr(eq + 1);
+
+            // Decodificar chave e valor
+            key = urlDecode(key);
+            value = urlDecode(value);
+
+            req.query[key] = value;
+        }
+    }
+}
+
+bool HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
 {
     std::string data = buffer.toString();
     size_t header_end = data.find("\r\n\r\n");
@@ -49,7 +117,7 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
     if (header_end == std::string::npos)
         return (false);
 
-     req.header_end = header_end + 4; // guardar posição para chunked
+    req.header_end = header_end + 4; // guardar posição para chunked
 
     std::string headers_block = data.substr(0, header_end);
     std::istringstream ss(headers_block);
@@ -58,22 +126,29 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
     // Request line
     if (!std::getline(ss, line))
         return (false);
-    if (!line.empty() && line[line.size()-1] == '\r') line.erase(line.size()-1);
+    if (!line.empty() && line[line.size() - 1] == '\r')
+        line.erase(line.size() - 1);
     {
         std::istringstream ls(line);
         ls >> req.method >> req.uri >> req.version;
     }
+    // <-- Aqui, validar a linha antes de continuar
+    if (req.method.empty() || req.uri.empty() || req.version.empty())
+        return false; // request inválida
+
+    // Agora sim, extrair query params
+    HttpParser::parseQueryParams(req);
 
     // Headers
     while (std::getline(ss, line))
     {
-        if (!line.empty() && line[line.size()-1] == '\r')
-            line.erase(line.size()-1);
+        if (!line.empty() && line[line.size() - 1] == '\r')
+            line.erase(line.size() - 1);
         if (line.empty())
-            break ;
+            break;
         size_t colon = line.find(':');
         if (colon == std::string::npos)
-            continue ;
+            continue;
         std::string key = trim(line.substr(0, colon));
         std::string val = trim(line.substr(colon + 1));
         req.headers[key] = val;
@@ -121,7 +196,7 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
     return true;
 }
 
-bool    HttpParser::parseChunkedBody(Buffer &buffer, Request &req)
+bool HttpParser::parseChunkedBody(Buffer &buffer, Request &req)
 {
     std::string data = buffer.toString();
     size_t pos = req.header_end; // posição logo após \r\n\r\n dos headers
