@@ -243,7 +243,7 @@ void    MasterServer::handleRead(int clientFd)
         else
         {
             closeConnection(clientFd);
-            return;
+            return ;
         }
     }
 
