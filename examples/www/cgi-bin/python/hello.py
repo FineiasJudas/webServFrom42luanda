@@ -2,7 +2,7 @@
 
 import sys
 
-sys.stdout.write("Status: 200 OK\r\n")
-sys.stdout.write("Content-Type: text/html\r\n")
-sys.stdout.write("\r\n")
-sys.stdout.write("<h1>Hello from Python CGI!</h1>")
+print("Status: 200 OK\r\n")
+print("Content-Type: text/html\r\n")
+print("\r\n")
+print("<h1>Hello from Python CGI!</h1>")
