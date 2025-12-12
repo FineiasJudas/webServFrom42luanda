@@ -42,34 +42,54 @@ bool HttpParser::hasCompleteRequest(const Buffer &buffer)
     return (true);
 }
 
+std::string HttpParser::urlDecode(const std::string &str)
+{
+    std::string result;
+    char hex[3] = {0};
+
+    for (size_t i = 0; i < str.size(); ++i)
+    {
+        if (str[i] == '+')
+        {
+            result += ' ';
+        }
+        else if (str[i] == '%' && i + 2 < str.size())
+        {
+            hex[0] = str[i + 1];
+            hex[1] = str[i + 2];
+            char decoded = static_cast<char>(strtol(hex, NULL, 16));
+            result += decoded;
+            i += 2;
+        }
+        else
+        {
+            result += str[i];
+        }
+    }
+
+    return result;
+}
+
 void HttpParser::parseQueryParams(Request &req)
 {
-    // Separar PATH e QUERY_STRING
     size_t pos = req.uri.find('?');
-    (void) pos;
     std::string temp_query;
 
     if (pos != std::string::npos)
     {
-        //req.path = req.uri.substr(0, pos);
-        std::cout << "pos:::::: " << pos << std::endl;
-        std::cout << "uri:::::: " << req.uri << std::endl;
+        req.path = req.uri.substr(0, pos);
         temp_query = req.uri.substr(pos + 1);
-        req.query_string = temp_query; // atribuição simples
+        req.query_string = temp_query;
     }
-    
     else
     {
         req.path = req.uri;
         req.query_string.clear();
     }
 
-
-    // Se não tem query string, nada para fazer
     if (req.query_string.empty())
         return;
 
-    // Dividir os pares "key=value"
     std::vector<std::string> pairs = Utils::split(req.query_string, '&');
 
     for (size_t i = 0; i < pairs.size(); ++i)
@@ -79,10 +99,14 @@ void HttpParser::parseQueryParams(Request &req)
         {
             std::string key = pairs[i].substr(0, eq);
             std::string value = pairs[i].substr(eq + 1);
+
+            // Decodificar chave e valor
+            key = urlDecode(key);
+            value = urlDecode(value);
+
             req.query[key] = value;
         }
     }
-    
 }
 
 bool HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)

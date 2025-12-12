@@ -1,21 +1,18 @@
 <!DOCTYPE html>
 <html lang="pt">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Serviços Web - 42</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/carbon-components/10.58.12/css/carbon-components.min.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/carbon-components/10.58.12/css/carbon-components.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
             font-family: 'IBM Plex Sans', sans-serif;
-            background-color: #f4f4f4;
+            background: #f4f4f4;
             color: #161616;
+            margin: 0;
         }
 
         .header {
@@ -23,12 +20,10 @@
             color: white;
             padding: 3rem 2rem;
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .header h1 {
             font-size: 2.5rem;
-            font-weight: 600;
             margin-bottom: 0.5rem;
         }
 
@@ -168,7 +163,7 @@
         .example-box {
             background: #f4f4f4;
             border-left: 4px solid #0f62fe;
-            padding: 1.5rem;
+            padding: 1rem;
             border-radius: 4px;
             margin: 1rem 0;
             font-family: 'IBM Plex Mono', monospace;
@@ -178,7 +173,7 @@
         .action-buttons {
             display: flex;
             gap: 1rem;
-            margin-top: 2rem;
+            margin-top: 1rem;
         }
 
         .btn {
@@ -187,9 +182,9 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 1rem;
-            transition: all 0.3s ease;
             text-decoration: none;
             display: inline-block;
+            transition: all 0.3s ease;
         }
 
         .btn-primary {
@@ -218,232 +213,9 @@
             padding: 2rem;
             margin-top: 4rem;
         }
-
-        .footer p {
-            opacity: 0.8;
-        }
-
-        /* Tablet (768px - 1024px) */
-        @media (max-width: 1024px) {
-            .main-content {
-                grid-template-columns: 300px 1fr;
-                gap: 1.5rem;
-            }
-
-            .services-sidebar {
-                padding: 1.25rem;
-            }
-
-            .service-details {
-                padding: 2rem;
-            }
-
-            .header h1 {
-                font-size: 2.25rem;
-            }
-
-            .service-details h2 {
-                font-size: 1.75rem;
-            }
-        }
-
-        /* Mobile Landscape / Tablet Portrait (481px - 768px) */
-        @media (max-width: 768px) {
-            .header {
-                padding: 2rem 1.5rem;
-            }
-
-            .header h1 {
-                font-size: 1.85rem;
-            }
-
-            .header p {
-                font-size: 1rem;
-            }
-
-            .container {
-                padding: 1rem;
-            }
-
-            .main-content {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
-
-            .services-sidebar {
-                position: static;
-                padding: 1.25rem;
-            }
-
-            .services-sidebar h2 {
-                font-size: 1.35rem;
-            }
-
-            .service-item {
-                padding: 0.875rem;
-            }
-
-            .service-item h3 {
-                font-size: 1rem;
-            }
-
-            .service-details {
-                padding: 1.75rem;
-            }
-
-            .service-details h2 {
-                font-size: 1.65rem;
-            }
-
-            .service-section h3 {
-                font-size: 1.2rem;
-            }
-
-            .action-buttons {
-                flex-direction: column;
-            }
-
-            .btn {
-                width: 100%;
-                text-align: center;
-            }
-        }
-
-        /* Mobile Portrait (320px - 480px) */
-        @media (max-width: 480px) {
-            .header {
-                padding: 1.5rem 1rem;
-            }
-
-            .header h1 {
-                font-size: 1.5rem;
-                margin-bottom: 0.35rem;
-            }
-
-            .header p {
-                font-size: 0.9rem;
-            }
-
-            .container {
-                padding: 0.75rem;
-            }
-
-            .main-content {
-                gap: 1rem;
-            }
-
-            .services-sidebar {
-                padding: 1rem;
-                border-radius: 6px;
-            }
-
-            .services-sidebar h2 {
-                font-size: 1.2rem;
-                margin-bottom: 1rem;
-            }
-
-            .service-item {
-                padding: 0.75rem;
-                margin-bottom: 0.5rem;
-            }
-
-            .service-item h3 {
-                font-size: 0.95rem;
-            }
-
-            .service-item p {
-                font-size: 0.8rem;
-            }
-
-            .service-details {
-                padding: 1.25rem;
-                border-radius: 6px;
-                min-height: auto;
-            }
-
-            .service-details h2 {
-                font-size: 1.4rem;
-                margin-bottom: 0.75rem;
-            }
-
-            .service-badge {
-                font-size: 0.8rem;
-                padding: 0.2rem 0.6rem;
-                margin-bottom: 1rem;
-            }
-
-            .service-description {
-                font-size: 1rem;
-                margin-bottom: 1.5rem;
-                line-height: 1.6;
-            }
-
-            .service-section {
-                margin-bottom: 1.5rem;
-            }
-
-            .service-section h3 {
-                font-size: 1.1rem;
-                margin-bottom: 0.75rem;
-            }
-
-            .service-section li {
-                padding: 0.5rem 0;
-                padding-left: 1.25rem;
-                font-size: 0.9rem;
-            }
-
-            .example-box {
-                padding: 1rem;
-                font-size: 0.8rem;
-                word-break: break-all;
-            }
-
-            .action-buttons {
-                margin-top: 1.5rem;
-                gap: 0.75rem;
-            }
-
-            .btn {
-                padding: 0.65rem 1.25rem;
-                font-size: 0.95rem;
-            }
-
-            .footer {
-                padding: 1.5rem 1rem;
-                margin-top: 2rem;
-            }
-
-            .footer p {
-                font-size: 0.875rem;
-            }
-        }
-
-        /* Extra Small Mobile (< 320px) */
-        @media (max-width: 320px) {
-            .header h1 {
-                font-size: 1.3rem;
-            }
-
-            .header p {
-                font-size: 0.85rem;
-            }
-
-            .service-details h2 {
-                font-size: 1.25rem;
-            }
-
-            .service-section h3 {
-                font-size: 1rem;
-            }
-
-            .btn {
-                padding: 0.6rem 1rem;
-                font-size: 0.9rem;
-            }
-        }
     </style>
 </head>
+
 <body>
     <header class="header">
         <h1>Serviços Web - 42</h1>
@@ -475,29 +247,26 @@
                 name: 'CGI (Common Gateway Interface)',
                 type: 'Dinâmico',
                 shortDesc: 'Execução de scripts dinâmicos',
-                description: 'O CGI permite que o webserver execute scripts e programas externos para gerar conteúdo dinâmico. É uma das tecnologias mais fundamentais para criar páginas web interativas.',
+                description: 'O CGI permite que o webserver execute scripts e programas externos para gerar conteúdo dinâmico.',
                 purpose: 'Processar formulários, gerar conteúdo personalizado, interagir com bases de dados e executar lógica de negócio no servidor.',
                 features: [
                     'Suporte para múltiplas linguagens (Python, Perl, Bash, C++)',
                     'Processamento de dados de formulários via GET e POST',
-                    'Geração dinâmica de HTML, JSON e outros formatos',
-                    'Acesso a variáveis de ambiente do servidor',
-                    'Integração com sistemas externos'
+                    'Geração dinâmica de HTML',
+                    'Acesso a variáveis de ambiente do servidor'
                 ],
                 examples: [
-                    'Formulário de contato que envia emails',
-                    'Sistema de login e autenticação',
-                    'Calculadora online',
-                    'Gerador de relatórios personalizados'
-                ],
-                testUrl: '/cgi-bin/python/form.py'
+                    { name: 'Calculadora Online em C', testUrl: '/servicos/get_cgi.html' },
+                    { name: 'Script em Python', testUrl: '/cgi-bin/python/form.py' },
+                     { name: 'Script em PHP', testUrl: '/cgi-bin/php/testing.php' }
+                ]
             },
             {
                 id: 'static',
                 name: 'HTTP Estático',
                 type: 'Estático',
                 shortDesc: 'Servir arquivos estáticos',
-                description: 'O serviço HTTP estático entrega arquivos diretamente do sistema de ficheiros sem processamento adicional. É o método mais rápido e eficiente para servir conteúdo que não muda.',
+                description: 'O serviço HTTP estático entrega arquivos diretamente do sistema de ficheiros sem processamento adicional.',
                 purpose: 'Fornecer HTML, CSS, JavaScript, imagens e outros recursos estáticos de forma rápida e eficiente.',
                 features: [
                     'Entrega de alta performance com cache',
@@ -507,14 +276,10 @@
                     'Headers de cache e ETags'
                 ],
                 examples: [
-                    'Páginas HTML estáticas',
-                    'Folhas de estilo CSS',
-                    'Bibliotecas JavaScript',
-                    'Imagens, vídeos e documentos PDF'
-                ],
-                testUrl: '/static/index.html'
-            },
-
+                    { name: 'Páginas HTML estáticas', testUrl: '/static/index.html' },
+                    { name: 'Folhas de estilo CSS', testUrl: '/static/style.css' }
+                ]
+            }
         ];
 
         let activeService = null;
@@ -522,29 +287,26 @@
         function renderServicesList() {
             const list = document.getElementById('servicesList');
             list.innerHTML = services.map(service => `
-                <div class="service-item" onclick="showServiceDetails('${service.id}')">
+                <div class="service-item" onclick="showServiceDetails('${service.id}', event)">
                     <h3>${service.name}</h3>
                     <p>${service.shortDesc}</p>
                 </div>
             `).join('');
         }
 
-        function showServiceDetails(serviceId) {
+        function showServiceDetails(serviceId, event) {
             const service = services.find(s => s.id === serviceId);
             if (!service) return;
 
             activeService = serviceId;
 
-            document.querySelectorAll('.service-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            event.currentTarget.classList.add('active');
+            document.querySelectorAll('.service-item').forEach(item => item.classList.remove('active'));
+            if (event && event.currentTarget) event.currentTarget.classList.add('active');
 
             const details = document.getElementById('serviceDetails');
             details.innerHTML = `
                 <h2>${service.name}</h2>
                 <span class="service-badge">${service.type}</span>
-                
                 <p class="service-description">${service.description}</p>
 
                 <div class="service-section">
@@ -561,41 +323,43 @@
 
                 <div class="service-section">
                     <h3>Exemplos de Uso</h3>
-                    <ul>
-                        ${service.examples.map(e => `<li>${e}</li>`).join('')}
-                    </ul>
-                </div>
+                    ${service.examples.map(ex => `
+                        <div class="example-box">
+                            <p><strong>${ex.name}</strong></p>
+                            <div class="action-buttons">
+                                <button class="btn btn-primary" onclick="testService('${ex.testUrl}', this)">Testar Serviço</button>
+                                <button class="btn btn-secondary" onclick="copyUrl('${ex.testUrl}')">Copiar URL</button>
+                            </div>
+                            <iframe class="test-frame" style="width:100%; height:300px; margin-top:0.5rem; border:1px solid #ccc; display:none;"></iframe>
+                        </div>
 
-                <div class="example-box">
-                    <strong>URL de Teste:</strong> ${service.testUrl}
-                </div>
-
-                <div class="action-buttons">
-                    <a href="${service.testUrl}" class="btn btn-primary" target="_blank">Testar Serviço</a>
-                    <button class="btn btn-secondary" onclick="copyUrl('${service.testUrl}')">Copiar URL</button>
+                    `).join('')}
                 </div>
             `;
 
-            // Scroll suave para os detalhes do serviço em mobile/tablet
+            // Scroll suave para detalhes no mobile/tablet
             if (window.innerWidth <= 768) {
-                setTimeout(() => {
-                    details.scrollIntoView({ 
-                        behavior: 'smooth', 
-                        block: 'start'
-                    });
-                }, 100);
+                setTimeout(() => details.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
             }
         }
 
+        function testService(url, btn) {
+            const box = btn.closest('.example-box');
+            const iframe = box.querySelector('.test-frame');
+            iframe.src = url;
+            if (iframe.style.display != 'block'){iframe.style.display = 'block';}
+            else {iframe.style.display = 'none';}
+        }
+
+
         function copyUrl(url) {
             const fullUrl = window.location.origin + url;
-            navigator.clipboard.writeText(fullUrl).then(() => {
-                alert('URL copiado para a área de transferência!');
-            });
+            navigator.clipboard.writeText(fullUrl).then(() => alert('URL copiado para a área de transferência!'));
         }
 
         renderServicesList();
         showServiceDetails('cgi');
     </script>
 </body>
+
 </html>

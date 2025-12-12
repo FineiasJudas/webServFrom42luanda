@@ -10,6 +10,7 @@ class   HttpParser
     public:
         static bool hasCompleteRequest(const Buffer &buffer);
         static bool parseRequest(Buffer &buffer, Request &req, size_t max_body_size);
+        static std::string urlDecode(const std::string &str);
         static void parseQueryParams(Request &req);
 
     private:
