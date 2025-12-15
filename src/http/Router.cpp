@@ -80,12 +80,29 @@ void    parseUri(Request &req)
 }
 
 //   LISTAR ARQUIVOS EM /uploads-list
-Response handleUploadsList(const Request &req)
+Response    handleUploadsList(const Request &req, const ServerConfig &config)
 {
     (void)req;
 
-    Response res;
-    std::string folder = "./examples/www/uploads";
+    Response    res;
+    size_t i = 0;
+    for (; i < config.locations.size(); i++)
+    {
+        if (config.locations[i].path == "/uploads-list")
+        {
+            if (config.locations[i].root.empty())
+            {
+                res.status = 500;
+                res.body = "{\"error\": \"uploads-list root not configured\"}";
+                res.headers["Content-Type"] = "application/json";
+                res.headers["Content-Length"] = Utils::toString(res.body.size());
+                return res;
+            }
+            break ;
+        }
+    }
+
+    std::string folder = config.locations[i].root;
 
     DIR *dir = opendir(folder.c_str());
     if (!dir)
@@ -125,11 +142,13 @@ Response handleUploadsList(const Request &req)
 }
 
 //   DELETE EM /delete-file?name=
-Response    handleDeleteFile(const Request &req)
+Response    handleDeleteFile(const Request &req, const ServerConfig &config)
 {
+    Response r;
+
     if (req.query.find("name") == req.query.end())
     {
-        Response r;
+
         r.status = 400;
         r.body = "{\"error\": \"missing ?name=\"}";
         r.headers["Content-Type"] = "application/json";
@@ -146,11 +165,27 @@ Response    handleDeleteFile(const Request &req)
         filename[p] = ' ';
     }
 
-    std::string fullpath = "./examples/www/uploads/" + filename;
+    size_t i = 0;
+    for (; i < config.locations.size(); i++)
+    {
+        if (config.locations[i].path == "/uploads-list")
+        {
+            if (config.locations[i].root.empty())
+            {
+                r.status = 500;
+                r.body = "{\"error\": \"upload_dir root not configured\"}";
+                r.headers["Content-Type"] = "application/json";
+                r.headers["Content-Length"] = Utils::toString(r.body.size());
+                return r;
+            }
+            break ;
+        }
+    }
+
+    std::string fullpath = config.locations[i].root + "/" + filename;
 
     if (unlink(fullpath.c_str()) != 0)
     {
-        Response r;
         r.status = 500;
         r.body = "{\"error\": \"failed to delete\"}";
         r.headers["Content-Type"] = "application/json";
@@ -158,7 +193,6 @@ Response    handleDeleteFile(const Request &req)
         return r;
     }
 
-    Response r;
     r.status = 200;
     r.body = "{\"status\": \"deleted\"}";
     r.headers["Content-Type"] = "application/json";
@@ -181,13 +215,13 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     if (handleSession(req, r)) return r;
 
     if (rq.method == "GET" && rq.uri == "/uploads-list")
-        return handleUploadsList(rq);
+        return handleUploadsList(rq, config);
 
     if (rq.method == "DELETE" && rq.uri.rfind("/delete-file", 0) == 0)
     {
         Request tmp = rq;
         parseUri(tmp);
-        return handleDeleteFile(tmp);
+        return handleDeleteFile(tmp, config);
     }
 
     // 1) Encontrar location correto
@@ -197,12 +231,12 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     // 1.5) Redirecionamento
     if (loc.redirect_code != 0)
     {
-        Response r;
+        Response    r;
 
         r.status = loc.redirect_code;
         r.headers["Location"] = loc.redirect_url;
         r.body = "<h1>" + Utils::toString(loc.redirect_code)
-                 + " Redirect</h1><p>→ " + loc.redirect_url + "</p>";
+                + " Redirect</h1><p>→ " + loc.redirect_url + "</p>";
         r.headers["Content-Length"] = Utils::toString(r.body.size());
         r.headers["Content-Type"] = "text/html";
         return (r);
@@ -218,10 +252,9 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     Logger::log(Logger::INFO, "CGI: " + ext);
     Logger::log(Logger::INFO, "PATH: " + req.path);
 
-      for (std::map<std::string, std::string>::const_iterator it = req.query.begin(); it != req.query.end(); ++it)
-    {
+    for (std::map<std::string, std::string>::const_iterator it = req.query.begin();
+        it != req.query.end(); ++it)
         std::cout << "Query Param: " << it->first << " = " << it->second << std::endl;
-    }
     for (size_t i = 0; i < loc.cgi.size(); i++)
     {
         if (ext == loc.cgi[i].extension)

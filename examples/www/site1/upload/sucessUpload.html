@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/carbon-components/10.58.12/css/carbon-components.min.css">
+  <title>Upload sucessfuly</title>
+  <style>
+    :root
+    {
+      --cor-primaria: #4f46e5;
+      --cor-fundo: #0e1529;
+      --cor-texto: #e5e7eb;
+      --cor-texto-sec: #cbd5e1;
+      --bordas: rgba(255,255,255,0.1);
+    }
+
+    *
+    {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body
+    {
+      height: 100%;
+    }
+
+    body
+    {
+      display: flex;
+      flex-direction: column;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      background: #f4f4f4;
+      color: #111;
+      line-height: 1.6;
+    }
+
+    main
+    {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .foot {
+      width: 100%;
+      height: 120px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: var(--cor-fundo);
+      color: var(--cor-texto);
+      gap: 8px;
+    }
+
+    .voltar
+    {
+        text-decoration: none;
+        margin-top: 30px;
+        padding: 10px 20px;
+        border-radius: 15px;
+        border: 0px;
+        text-align: center;
+        background-color: var(--cor-fundo);
+        color: var(--cor-texto);
+    }
+    .voltar:hover
+    {
+        background-color: var(--cor-primaria);
+        color: #fff;
+        transition: 0.3s;
+    }
+
+    .continue
+    {
+        text-decoration: none;
+        margin-top: 30px;
+        padding: 10px 20px;
+        border-radius: 15px;
+        border: 0px;
+        text-align: center;
+        background-color: var(--cor-primaria);
+        color: #fff;
+    }
+    .continue:hover
+    {
+        background-color: var(--cor-fundo);
+        color: var(--cor-texto);
+        transition: 0.3s;
+    }
+
+  </style>
+</head>
+<body>
+  <main>
+    <img src="./uploadSucess.png" alt="Upload Img" style="width: 160px; height: 140px;">
+    <h1 style="font-size: 35px; color: #111; margin-top: 12px;">Upload made sucessfuly!</h1>
+    <div style="display: flex; flex-direction: row; gap: 10px;">
+      <a class="voltar" href="../index.html"> Voltar para ínicio </a>
+      <a class="continue" href="./uploads.html"> Continue </a>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <p>All rights reserved.</p>
+    <p>© 2025 WebServ Team</p>
+  </footer>
+</body>
+</html>

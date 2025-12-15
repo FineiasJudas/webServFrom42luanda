@@ -1,47 +1,55 @@
-webserv/                     # root do projecto
+webserv/                         # root do projecto
 ├─ Makefile
 ├─ README.md
 ├─ LICENSE
 ├─ conf/
-│  ├─ default.conf
-│  └─ sites/                 # configs por "server" (opcional)
-│     ├─ site1.conf
-│     └─ site2.conf
+│  └─ default.conf
 ├─ src/
 │  ├─ main.cpp
-│  ├─ core/                  # Membro 1 (Core & I/O)
-│  │  ├─ Server.hpp
-│  │  ├─ Server.cpp
+│  ├─ core/                      # Membro 1 (Core & I/O)
+│  │  ├─ MasterServer.hpp
+│  │  ├─ MasterServer.cpp
 │  │  ├─ Poller.hpp
 │  │  ├─ PollerEpoll.cpp
 │  │  ├─ Connection.hpp
-│  │  ├─ Connection.cpp
+│  │  ├─ Connection.hpp
+│  │  ├─ Signal.hpp
+│  │  ├─ Signal.cpp
 │  │  ├─ Buffer.hpp
 │  │  └─ Buffer.cpp
-│  ├─ config/                # Classe Config + parser (Membro 2 colaborará aqui)
+│  ├─ exceptions/
+│  │  └─ WebServException.hpp
+│  ├─ config/                    # Classe Config + parser (Membro 2 colaborará aqui)
 │  │  ├─ Config.hpp
 │  │  ├─ Config.cpp
 │  │  └─ ConfigParser.hpp
-│  ├─ http/                  # Membro 2 (HTTP & Config)
+│  ├─ http/                      # Membro 2 (HTTP & Config)
 │  │  ├─ HttpParser.hpp
 │  │  ├─ HttpParser.cpp
 │  │  ├─ Request.hpp
 │  │  ├─ Response.hpp
 │  │  └─ Router.hpp
-│  ├─ cgi/                   # Membro 3 (CGI & Features)
+│  ├─ session/
+│  │  ├─ SessionManager.hpp
+│  │  └─ SessionManager.cpp
+│  ├─ cgi/                       # Membro 3 (CGI & Features)
 │  │  ├─ CgiHandler.hpp
 │  │  ├─ CgiHandler.cpp
 │  │  └─ StaticFiles.hpp
-│  ├─ utils/
-│  │  ├─ Logger.hpp
-│  │  └─ Utils.hpp
-│  └─ tests/                 # testes unitários / scripts
-│     ├─ core_tests/
-│     ├─ conf_tests/
-│     └─ http_tests/
+│  └─ utils/
+│     ├─ Logger.hpp
+│     ├─ Logger.cpp
+|     ├─ keyword.hpp
+│     └─ Utils.hpp
 ├─ examples/
-│  ├─ www/                   # pasta estática de exemplo (site root)
-│  └─ cgi-bin/
+│  └─ sites/                     # configs por "server" (opcional)
+│     └─ www/    
+│        ├─ site1/               # pasta estática de exemplo (site root)
+|        |  ├─ index.html
+|        |  └─ cgi-bin/
+│        └─ site2/
+|           ├─ index.html
+|           └─ cgi-bin/
 └─ docs/
    ├─ ARCHITECTURE.md
    ├─ CORE_README.md

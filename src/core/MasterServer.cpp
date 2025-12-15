@@ -149,6 +149,7 @@ int MasterServer::createListenSocketForPort(int port)
         close(fd);
         return (-1);
     }
+
     if (listen(fd, MAX_EVENTS) < 0)
     {
         Logger::log(Logger::ERROR, "listen() fail: " + Utils::toString(errno));
@@ -222,7 +223,6 @@ void    MasterServer::handleRead(int clientFd)
 {
     ssize_t     n;
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
-
     if (it == connections.end())
         return ;
 
@@ -286,7 +286,7 @@ void    MasterServer::handleRead(int clientFd)
             return ;
         }
 
-        // determinar servidor real (virtual host)
+        // determinar servidor real para este pedido
         ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
         conn->setServer(sc);
 

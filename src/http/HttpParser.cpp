@@ -109,7 +109,7 @@ void HttpParser::parseQueryParams(Request &req)
     }
 }
 
-bool HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
+bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
 {
     std::string data = buffer.toString();
     size_t header_end = data.find("\r\n\r\n");

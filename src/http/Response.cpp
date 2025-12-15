@@ -271,8 +271,7 @@ Response methodPost(const Request &req,
                     const std::string &path)
 {
     (void)config;
-
-    Response res;
+    Response    res;
 
     // Não pode ser um diretório
     if (path[path.size() - 1] == '/')
@@ -396,7 +395,7 @@ Response    methodPostMultipart(const Request &req,
     out.write(filedata.c_str(), filedata.size());
     out.close();
 
-    std::string content = readFile("./examples/www/upload/sucessUpload.html");
+    std::string content = readFile("./examples/www/site1/upload/sucessUpload.html");
     res.status = 201;
     res.body = content;
     res.headers["Content-Type"] = "text/html";

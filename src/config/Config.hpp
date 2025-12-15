@@ -46,7 +46,7 @@ struct  ServerConfig
 
     ServerConfig()
         : max_body_size(1024 * 1024),
-          root("./examples/www"),
+          root("./examples/www/site1"),
           auto_index_set(false),
           auto_index(false),
           cgi_timeout(3)

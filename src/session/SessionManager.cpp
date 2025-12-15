@@ -200,8 +200,8 @@ bool    Router::handleLogin(const Request &req, Response &res)
     std::string sid = g_sessions.createSession();
 
     res.status = 200;
-    if (fileExists("examples/www/sessions.html"))
-        res.body = readFile("examples/www/sessions.html");
+    if (fileExists("examples/www/site1/sessions.html"))
+        res.body = readFile("examples/www/site1/sessions.html");
     else
         res.body = "<h1>Login OK!</h1><a href=\"/sessions.html\">Prosseguir</a>";
     res.headers["Set-Cookie"] = "session_id=" + sid + "; Path=/; HttpOnly";

@@ -1,13 +1,13 @@
 #ifndef MASTERSERVER_HPP
 #define MASTERSERVER_HPP
 
-#include <vector>
 #include <map>
+#include <vector>
 #include <string>
 #include "Poller.hpp"
 #include "Connection.hpp"
-#include "../config/Config.hpp" // ServerConfig, LocationConfig
 #include "../http/Request.hpp"
+#include "../config/Config.hpp"
 
 class   MasterServer
 {
