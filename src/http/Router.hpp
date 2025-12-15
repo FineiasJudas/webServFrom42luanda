@@ -13,6 +13,7 @@ class   Router
 
     private:
         static bool handleSession(const Request &req, Response &res);
+        static bool handleSessionGeneric(const Request &req, Response &res);
         static bool handleCsrf(const Request &req, Response &res);
         static bool handleLogin(const Request &req, Response &res);
         static bool handleLogout(const Request &req, Response &res);

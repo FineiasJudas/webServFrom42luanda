@@ -204,6 +204,7 @@ Response    Router::route(const Request &req, const ServerConfig &config)
 {
     // 0) ENDPOINTS ESPECIAIS SEM PASSAR POR LOCATION
     // (Eles sempre devem ser processados *antes* do findBestLocation)
+
     
     Response r;
     Request rq = req;
@@ -212,6 +213,7 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     if (handleCsrf(req, r)) return r;
     if (handleLogin(req, r)) return r;
     if (handleLogout(req, r)) return r;
+    //if (handleSessionGeneric(req, r)) return r;
     if (handleSession(req, r)) return r;
 
     if (rq.method == "GET" && rq.uri == "/uploads-list")

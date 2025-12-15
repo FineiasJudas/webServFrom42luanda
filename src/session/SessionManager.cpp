@@ -147,6 +147,44 @@ bool    Router::handleSession(const Request &req, Response &res)
     return true;
 }
 
+bool    Router::handleSessionGeneric(const Request &req, Response &res)
+{
+    if (!(req.method == "GET"))
+        return false;
+
+    std::string sid = "";
+
+    if (req.headers.count("Cookie"))
+    {
+        std::string ck = req.headers.at("Cookie");
+        size_t pos = ck.find("session_id=");
+        if (pos != std::string::npos)
+        {
+            sid = ck.substr(pos + 11);
+            size_t end = sid.find(';');
+            if (end != std::string::npos)
+                sid = sid.substr(0, end);
+        }
+    }
+
+    if ((sid.empty() || !g_sessions.hasSession(sid)) && req.uri != "/session")
+    {
+        std::cout << "Sessão inexistente na rota genérica." << std::endl;
+        res.status = 403;
+        res.body = "<h1 class=\"error\">403</h1><p class=\"statusR\">Sessão inexistente<p>"
+                "<button onclick=\"login()\" class=\"logintbtn\">Login</button><br><br>";
+        res.headers["Content-Type"] = "text/html";
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        return true;
+    }
+    std::cout << "Sessão encontrada na rota genérica." << std::endl;
+
+    SessionData &data = g_sessions.getSession(sid);
+    (void) data;
+    g_sessions.updateSession(sid);
+    return false;
+}
+
 bool    Router::handleCsrf(const Request &req, Response &res)
 {
     if (!(req.method == "GET" && req.uri == "/csrf"))
