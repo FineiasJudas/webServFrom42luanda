@@ -1,12 +1,10 @@
-NAME        = webserv
+NAME = webserv
 
-CXX         = c++
+CXX = c++
+CXXFLAGS = -Wall -Wextra -Werror -std=c++98
+INCLUDES = -Iincludes
 
-CXXFLAGS    = -Wall -Wextra -Werror -std=c++98
-
-INCLUDES    = -I./includes
-
-RM          = rm -f
+RM = rm -f
 
 SRCS = \
     src/main.cpp \
@@ -21,28 +19,27 @@ SRCS = \
     src/session/SessionManager.cpp \
     src/config/ConfigParser.cpp \
     src/cgi/CgiHandler.cpp \
-    src/utils/Logger.cpp \
-
+    src/utils/Logger.cpp
 
 OBJS = $(SRCS:.cpp=.o)
 
 all: $(NAME)
 
 $(NAME): $(OBJS)
-	@echo "Linking $(NAME)..."
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(NAME) $(OBJS)
-	@echo "Build complete!"
+	@echo "Construindo..."
+	$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJS)
+	@echo "Construção completa..."
+
 
 %.o: %.cpp
-	@echo "Compiling $< ..."
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
-	@echo "Cleaning object files..."
+	@echo "Limpando arquivos objeto..."
 	$(RM) $(OBJS)
 
 fclean: clean
-	@echo "Removing binary..."
+	@echo "Limpando executável..."
 	$(RM) $(NAME)
 
 re: fclean all

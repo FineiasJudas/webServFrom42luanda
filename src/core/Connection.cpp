@@ -26,6 +26,10 @@ ssize_t Connection::readFromFd()
     char    buffer[4096];
 
     ssize_t bytes = ::read(fd, buffer, sizeof(buffer));
+    if (bytes == -1){
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return (-2);
+    }
     if (bytes > 0)
     {
         input_buffer.append(buffer, bytes);
@@ -35,10 +39,6 @@ ssize_t Connection::readFromFd()
 
     if (bytes == 0)
         return (0); // client fechou
-
-    // n < 0 → verificar errno AQUI (permitido!)
-    if (errno == EAGAIN || errno == EWOULDBLOCK)
-        return (-2); // não tem mais nada pra ler agora
 
     return (-1);
 }
