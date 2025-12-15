@@ -26,7 +26,8 @@ ssize_t Connection::readFromFd()
     char    buffer[4096];
 
     ssize_t bytes = ::read(fd, buffer, sizeof(buffer));
-    if (bytes == -1){
+    if (bytes == -1)
+    {
         if (errno == EAGAIN || errno == EWOULDBLOCK)
             return (-2);
     }

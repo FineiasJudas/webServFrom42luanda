@@ -266,7 +266,7 @@ void MasterServer::handleRead(int clientFd)
             conn->getOutputBuffer().append(res.toString());
             poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
             Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
-            return;
+            return ;
         }
         if (req.too_large_body)
         {
@@ -278,8 +278,9 @@ void MasterServer::handleRead(int clientFd)
             res.headers["Content-Type"] = "text/html";
             conn->getOutputBuffer().append(res.toString());
             poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-            Logger::log(Logger::NEW, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
-            return;
+            Logger::log(Logger::NEW, "Status " + Utils::toString(res.status) + 
+                " " + Response::reasonPhrase(res.status));
+            return ;
         }
 
         // determinar servidor real para este pedido
@@ -296,13 +297,16 @@ void MasterServer::handleRead(int clientFd)
         else
             conn->setCloseAfterSend(false);
 
-        Logger::log(Logger::INFO, req.method + " " + req.uri + " " + req.version + " recebido na FD " + Utils::toString(clientFd));
+        Logger::log(Logger::INFO, req.method + " " + req.uri + 
+            " " + req.version + " recebido na FD " + Utils::toString(clientFd));
 
         // Roteamento
         Response res = Router::route(req, *sc);
 
-        res.status >= 200 && res.status <= 300 ? Logger::log(Logger::DEBUG, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status)) : res.status >= 400 && res.status <= 500 ? Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status))
-                                                                                                                                                                                                         : Logger::log(Logger::WINT, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
+        res.status >= 200 && res.status <= 300 ? Logger::log(Logger::DEBUG, "Status " + Utils::toString(res.status) + 
+        " " + Response::reasonPhrase(res.status)) : res.status >= 400 && res.status <= 500 ? 
+            Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status))
+                : Logger::log(Logger::WINT, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
 
         conn->getOutputBuffer().append(res.toString());
 
@@ -313,12 +317,12 @@ void MasterServer::handleRead(int clientFd)
         poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
 }
 
-void MasterServer::handleWrite(int clientFd)
+void    MasterServer::handleWrite(int clientFd)
 {
-    ssize_t sent;
+    ssize_t     sent;
     Connection *conn = connections[clientFd];
     if (!conn)
-        return;
+        return ;
 
     Buffer &out = conn->getOutputBuffer();
     if (out.empty())
@@ -339,7 +343,7 @@ void MasterServer::handleWrite(int clientFd)
     else if (sent == -2)
     {
         // EAGAIN / EWOULDBLOCK → tentar depois
-        return;
+        return ;
     }
     else
     {
@@ -350,7 +354,7 @@ void MasterServer::handleWrite(int clientFd)
     if (conn->shouldCloseAfterSend() && out.empty())
     {
         closeConnection(clientFd);
-        return;
+        return ;
     }
     if (out.empty())
     {
@@ -359,25 +363,24 @@ void MasterServer::handleWrite(int clientFd)
     }
 }
 
-void MasterServer::closeConnection(int clientFd)
+void    MasterServer::closeConnection(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
 
     if (it == connections.end())
-        return;
+        return ;
 
     poller.removeFd(clientFd);
     ::close(clientFd);
     delete it->second;
     connections.erase(it);
-
     Logger::log(Logger::WARN, "Conexão fechada FD " + Utils::toString(clientFd));
 }
 
-void MasterServer::checkTimeouts()
+void    MasterServer::checkTimeouts()
 {
-    time_t idle;
-    time_t now = time(NULL);
+    time_t  idle;
+    time_t  now = time(NULL);
 
     std::vector<int> toClose;
 
