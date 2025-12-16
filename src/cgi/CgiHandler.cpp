@@ -493,7 +493,7 @@ Response CgiHandler::handleCgiRequest(const Request &req,
   
 
 //    std::string script_path = loc.root + req.uri.substr(loc.path.size());
-    std::string script_path = loc.root + req.path.substr(loc.path.size());
+    std::string script_path = loc.root + "/" + req.path.substr(loc.path.size());
     std::cout << "SCRIPT_PATH :: " << script_path << std::endl;
 
 

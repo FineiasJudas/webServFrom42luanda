@@ -13,6 +13,7 @@ struct  LocationConfig
 {
     std::string path;
     std::string root;
+    std::string index;
 
     std::vector<CgiConfig> cgi;
 

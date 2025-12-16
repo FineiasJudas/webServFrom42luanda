@@ -273,13 +273,14 @@ void MasterServer::handleRead(int clientFd)
             Response res;
 
             res.status = 413;
-            res.body = "<h1>413 Payload Too Large</h1><a href=\"/\">Voltar</a>";
+            res.body = "<h1>413 Payload Too Large</h1><a href=\"../index.html\">Voltar</a>";
             res.headers["Content-Length"] = Utils::toString(res.body.size());
             res.headers["Content-Type"] = "text/html";
             conn->getOutputBuffer().append(res.toString());
             poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
             Logger::log(Logger::NEW, "Status " + Utils::toString(res.status) + 
                 " " + Response::reasonPhrase(res.status));
+            conn->getInputBuffer().clear();
             return ;
         }
 

@@ -38,13 +38,13 @@ static std::string stripSemicolon(const std::string &s)
 // =========================
 // Parser de Location
 // =========================
-void ConfigParser::parseLocation(std::ifstream &file,
+void    ConfigParser::parseLocation(std::ifstream &file,
                                  LocationConfig &loc,
                                  const std::string &firstLine)
 {
-    std::string path;
+    std::string     path;
     std::istringstream iss(firstLine);
-    std::string tmp;
+    std::string     tmp;
 
     iss >> tmp;     // location
     iss >> path;    // /abc
@@ -54,12 +54,11 @@ void ConfigParser::parseLocation(std::ifstream &file,
     while (std::getline(file, line))
     {
         line = trim(line);
-
         if (line == "}")
-            break;
+            break ;
 
         if (line.empty())
-            continue;
+            continue ;
 
         // Remove ponto e vírgula
         line = stripSemicolon(line);
@@ -72,6 +71,11 @@ void ConfigParser::parseLocation(std::ifstream &file,
         {
             iss >> value;
             loc.root = value;
+        }
+        else if (key == "index")
+        {
+            iss >> value;
+            loc.index = value;
         }
         else if (key == "methods")
         {
@@ -108,17 +112,16 @@ void ConfigParser::parseLocation(std::ifstream &file,
 // =========================
 // Parser de Server
 // =========================
-void ConfigParser::parseServer(std::ifstream &file, ServerConfig &cfg)
+void    ConfigParser::parseServer(std::ifstream &file, ServerConfig &cfg)
 {
-    std::string line;
-    std::string pendingCgiExt; // extensão ainda sem path
+    std::string     line;
+    std::string     pendingCgiExt; // extensão ainda sem path
 
     while (std::getline(file, line))
     {
         line = trim(line);
-
         if (line == "}" || line == "};")
-            break;
+            break ;
 
         if (line.empty())
             continue ;

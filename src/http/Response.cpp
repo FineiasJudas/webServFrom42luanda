@@ -238,11 +238,23 @@ Response    methodGet(const ServerConfig &config,
     }
 
     // 2. Se é diretório
+    std::string index;
+    std::cout << "\nRequested path is directory: " << path << "\n" << std::endl;
     if (dirExists(path))
     {
-        std::string index = path + "/index.html";
+        // construir path do index
+        if (!loc.index.empty())
+        {
+            index = path;
+            if (index[index.size() - 1] != '/')
+                index += "/";
+            index += loc.index;
+        }
+        else
+            index = path + "/index.html";
 
         // 2.a. Se tem index.html → retornar index.html
+        std::cout << "\nIndex path: " << index << "\n" << std::endl;
         if (fileExists(index))
         {
             res.body = readFile(index);

@@ -17,22 +17,39 @@ static std::string  getExtension(const std::string &path)
     return path.substr(pos);
 }
 
-const LocationConfig    &findBestLocation(const std::string& uri,
-                                       const ServerConfig& config)
+bool    matchLocation(const std::string &uri, const std::string &locPath)
 {
-    const LocationConfig    *best = NULL;
-    size_t  bestLen = 0;
+    if (uri.find(locPath) != 0)
+        return (false);
+
+    // location termina com /
+    if (locPath[locPath.size() - 1] == '/')
+        return (true);
+
+    // sem / → precisa bater exatamente ou terminar ali
+    if (uri.size() == locPath.size())
+        return (true);
+
+    if (uri[locPath.size()] == '/')
+        return (true);
+
+    return (false);
+}
+
+const LocationConfig &findBestLocation(const std::string &uri,
+                                       const ServerConfig &config)
+{
+    const LocationConfig *best = NULL;
+    size_t bestLen = 0;
 
     for (size_t i = 0; i < config.locations.size(); i++)
     {
-        const LocationConfig    &loc = config.locations[i];
+        const LocationConfig &loc = config.locations[i];
 
-        // sanity check
         if (loc.path.empty() || loc.path[0] != '/')
-            continue ;
+            continue;
 
-        // prefix match
-        if (uri.find(loc.path) == 0)
+        if (matchLocation(uri, loc.path))
         {
             if (loc.path.size() > bestLen)
             {
@@ -42,13 +59,12 @@ const LocationConfig    &findBestLocation(const std::string& uri,
         }
     }
 
-    // fallback: usually "/"
     if (!best)
-        // guaranteed by config parser
-        return config.locations[0];
+        return config.locations[0]; // "/"
 
     return (*best);
 }
+
 
 void    parseUri(Request &req)
 {
@@ -200,7 +216,97 @@ Response    handleDeleteFile(const Request &req, const ServerConfig &config)
     return r;
 }
 
+static std::string makeRealPath(const std::string &uri,
+                                const LocationConfig &loc,
+                                const ServerConfig &srv)
+{
+    std::string root = loc.root.empty() ? srv.root : loc.root;
+    std::string suffix;
+
+    if (uri.size() >= loc.path.size())
+        suffix = uri.substr(loc.path.size());
+
+    if (!root.empty() && root[root.size() - 1] == '/' &&
+        !suffix.empty() && suffix[0] == '/')
+        return root + suffix.substr(1);
+
+    if (!root.empty() && root[root.size() - 1] != '/' &&
+        !suffix.empty() && suffix[0] != '/')
+        return root + "/" + suffix;
+
+    return root + suffix;
+}
+
 Response    Router::route(const Request &req, const ServerConfig &config)
+{
+    Response r;
+    Request rq = req;
+
+    /* 1 Rotas internas */
+    if (handleCsrf(rq, r)) return r;
+    if (handleLogin(rq, r)) return r;
+    if (handleLogout(rq, r)) return r;
+    if (handleSession(rq, r)) return r;
+
+    if (rq.method == "GET" && rq.uri == "/uploads-list")
+        return handleUploadsList(rq, config);
+
+    if (rq.method == "DELETE" && rq.uri.rfind("/delete-file", 0) == 0)
+    {
+        Request tmp = rq; parseUri(tmp);
+        return handleDeleteFile(tmp, config);
+    }
+
+    /* 2 Encontrar location */
+    const LocationConfig &loc = findBestLocation(rq.uri, config);
+    Logger::log(Logger::INFO, "Location escolhida: " + loc.path);
+
+    /* 3 Redirect */
+    if (loc.redirect_code)
+    {
+        r.status = loc.redirect_code;
+        r.headers["Location"] = loc.redirect_url;
+        r.body = "<h1>Redirect</h1>";
+        r.headers["Content-Length"] = Utils::toString(r.body.size());
+        r.headers["Content-Type"] = "text/html";
+        return r;
+    }
+
+    /* 4 Segurança */
+    if (rq.uri.find("..") != std::string::npos)
+        return forbiddenPageResponse(config);
+
+    /* 5 Resolver FS path */
+    std::string fsPath = makeRealPath(rq.path, loc, config);
+    Logger::log(Logger::INFO, "FS PATH: " + fsPath);
+
+    /* 6 CGI */
+    std::string ext = getExtension(rq.path);
+    for (size_t i = 0; i < loc.cgi.size(); i++)
+    {
+        if (loc.cgi[i].extension == ext)
+            return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i]);
+    }
+
+    /* 7 Métodos HTTP */
+    if (rq.method == "GET")
+        return methodGet(config, loc, fsPath, rq.uri);
+
+    if (rq.method == "POST")
+    {
+        if (!loc.upload_dir.empty())
+            return methodPostMultipart(rq, loc.upload_dir);
+        return methodPost(rq, config, fsPath);
+    }
+
+    if (rq.method == "DELETE")
+        return methodDelete(fsPath, config);
+
+    return notAloweMethodResponse(config);
+}
+
+
+/*Response    Router::route(const Request &req, const ServerConfig &config)
 {
     // 0) ENDPOINTS ESPECIAIS SEM PASSAR POR LOCATION
     // (Eles sempre devem ser processados *antes* do findBestLocation)
@@ -213,7 +319,6 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     if (handleCsrf(req, r)) return r;
     if (handleLogin(req, r)) return r;
     if (handleLogout(req, r)) return r;
-    //if (handleSessionGeneric(req, r)) return r;
     if (handleSession(req, r)) return r;
 
     if (rq.method == "GET" && rq.uri == "/uploads-list")
@@ -228,7 +333,10 @@ Response    Router::route(const Request &req, const ServerConfig &config)
 
     // 1) Encontrar location correto
     const LocationConfig &loc = findBestLocation(rq.uri, config);
+
+    std::cout << std::endl;
     Logger::log(Logger::INFO, "Rota encontrada: " + loc.path);
+    std::cout << std::endl;
 
     // 1.5) Redirecionamento
     if (loc.redirect_code != 0)
@@ -271,10 +379,12 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     std::string path = root;
 
     // Corrigir duplo slash
-    if (path[path.size() - 1] == '/' && rq.uri[0] == '/')
-        path += rq.uri.substr(1);
+    if (root[root.size() - 1] == '/' && rq.path[0] == '/')
+        path += rq.path.substr(1);
+    else if (root[root.size() - 1] != '/' && rq.path[0] != '/')
+        path += "/" + rq.path;
     else
-        path += rq.uri;
+        path += rq.path;
 
     // 5) Métodos HTTP
 
@@ -296,4 +406,4 @@ Response    Router::route(const Request &req, const ServerConfig &config)
 
     // Método não permitido
     return notAloweMethodResponse(config);
-}
+}*/

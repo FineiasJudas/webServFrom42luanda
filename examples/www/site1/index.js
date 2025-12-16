@@ -9,7 +9,7 @@ document.querySelectorAll('.menu li').forEach(item => {
         } else if (item.id == 'serviços') {
             window.location.href = './servicos/index.html';
         } else if (item.id == 'uploads') {
-            window.location.href = './uploads.html';
+            window.location.href = './upload/uploads.html';
         } else if (item.id == 'sobre') {
             window.location.href = './about.html';
         } else if (item.id == 'contato') {
