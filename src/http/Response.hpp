@@ -60,7 +60,7 @@ Response    notAloweMethodResponse(const ServerConfig &config);
 
 Response    forbiddenPageResponse(const ServerConfig &config);
 
-Response methodPostMultipart(const Request &req, const std::string &uploadDir,
+Response    methodPostMultipart(const Request &req, const std::string &uploadDir,
     const LocationConfig &loc, const ServerConfig &config);
 
 std::string  readFile(const std::string &path);

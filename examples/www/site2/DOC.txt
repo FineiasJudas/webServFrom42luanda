@@ -1,0 +1,73 @@
+### Projetos para praticar HTML, CSS e JavaScript
+
+Aqui tens seis projetos progressivos com descrição da página e os tópicos essenciais que deves dominar para cada um. Cada projeto inclui funcionalidades concretas para implementares e ideias de extensão quando quiseres ir além.
+
+---
+
+### 1. Página "Landing" pessoal (portfolio simples)
+Descrição: página centralizada com cabeçalho, foto/ícone, breve bio, seção de projetos com cartões, botão de contacto que abre um modal e rodapé com links. Layout responsivo com header fixo e navegação interna por âncoras.  
+Tópicos envolvidos:
+- Estrutura HTML: header, main, section, article, footer, nav, aria-labels.  
+- CSS: Flexbox; Grid para cartões; variáveis CSS; tipografia, cores, spacing; media queries (responsividade).  
+- JavaScript: abertura/fecho de modal; smooth-scroll para âncoras; validação simples de formulário de contacto; manipulação do DOM (adicionar/remover classes).  
+- Extensões: animações CSS (transitions, transforms); lazy-loading de imagens; tema claro/escuro.
+
+---
+
+### 2. To‑Do List interativo
+Descrição: interface central com input para tarefa, botão "Adicionar", lista com itens que podem ser marcados como concluídos, editar tarefa e remover; persistência local com localStorage.  
+Tópicos envolvidos:
+- HTML semântico: form, input, ul/li, buttons.  
+- CSS: estilos para estados (concluído), uso de classes para estados, layout responsivo, microinterações.  
+- JavaScript: manipulação de arrays de tarefas; renderização da lista no DOM; eventos (submit, click, change); localStorage para persistência; delegação de eventos.  
+- Extensões: filtros (Todas, Ativas, Concluídas); ordenação por prioridade; drag-and-drop simples para reordenar.
+
+---
+
+### 3. Simulador de busca (mini‑Google)
+Descrição: página com logo, campo de pesquisa, botão de pesquisa, área de resultados que mostra cards simulados com título, descrição e link; opção de pesquisar por categoria; busca falsa com delay para simular requisição.  
+Tópicos envolvidos:
+- HTML: forms, fieldset, aria-live para acessibilidade dos resultados.  
+- CSS: centralização vertical (100vh), design de card, placeholders, responsividade.  
+- JavaScript: lidar com submit do form; simular fetch com Promise e setTimeout; renderizar lista de resultados; estados de loading/error; debounce em input.  
+- Extensões: pesquisa por sugestões (autocomplete); paginação simples; histórico de pesquisas (sessionStorage).
+
+---
+
+### 4. Calculadora de orçamento com validação
+Descrição: formulário com múltiplos inputs (quantidade, preço unitário, descontos, impostos), botão calcular, área de resultados detalhada (sub‑total, imposto, total) e feedback de erro.  
+Tópicos envolvidos:
+- HTML: inputs adequados (number), labels, role, aria-describedby para erros.  
+- CSS: layout em grid para formularios; feedback visual de erro; responsividade.  
+- JavaScript: validação (valores mínimos, presença), cálculos precisos (cuidado com floats), manipulação de eventos, formatação de moeda (Intl.NumberFormat).  
+- Extensões: salvar modelos; exportar resumo como texto copiado para clipboard; testes unitários simples para funções de cálculo.
+
+---
+
+### 5. Galeria de imagens com lightbox e filtros
+Descrição: grade de miniaturas, botão para filtro por categorias, clique em miniatura abre lightbox com imagem grande e navegação anterior/próximo, suporte a teclado (Esc, ←, →).  
+Tópicos envolvidos:
+- HTML: figure, img srcset/sizes para responsividade; data-attributes para metadados.  
+- CSS: Grid responsivo; transições para hover; design do lightbox (overlay).  
+- JavaScript: gerenciamento de índice atual; abrir/fechar lightbox; navegação por teclado; pré-carregamento de imagens; filtragem por classes.  
+- Extensões: lazy-loading; animação de entrada das imagens; integração com API externa (unsplash).
+
+---
+
+### 6. Jogo simples: Memória (concentration)
+Descrição: grid de cartas viradas; clicar revela carta; se pares iguais ficam abertas, senão viram de volta; cronômetro e contagem de movimentos; tela de vitória com pontuação.  
+Tópicos envolvidos:
+- HTML: estrutura do tabuleiro, controles (reiniciar), elementos de status.  
+- CSS: Grid com tamanho dinâmico, animações de flip 3D (transform-style), estados visuais.  
+- JavaScript: lógica do jogo (embaralhar, comparar pares, bloquear input temporariamente), temporizadores (setInterval), gerenciamento de estado do jogo, debounce para cliques rápidos.  
+- Extensões: níveis de dificuldade; pontuação com best-score em localStorage; animações sonoras (Audio API).
+
+---
+
+### Como praticar de forma intensiva
+- Faz um projeto por semana e documenta o que aprendes em cada um.  
+- Dá commits pequenos e frequentes; escreve comentários claros no código.  
+- Para cada tópico da lista, cria pequenos exercícios focados (ex.: só validação, só debounce, só grid responsivo).  
+- Refatora cada projeto depois de concluído: melhora semântica, acessibilidade e performance.
+
+Se quiser, eu monto um roteiro dia-a-dia para um dos projetos (por exemplo, o To‑Do) com tarefas divididas em micro‑passos e exemplos de código para cada etapa. Qual projeto quer começar primeiro?

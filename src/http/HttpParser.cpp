@@ -145,10 +145,10 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
         if (!line.empty() && line[line.size() - 1] == '\r')
             line.erase(line.size() - 1);
         if (line.empty())
-            break;
+            break ;
         size_t colon = line.find(':');
         if (colon == std::string::npos)
-            continue;
+            continue ;
         std::string key = trim(line.substr(0, colon));
         std::string val = trim(line.substr(colon + 1));
         req.headers[key] = val;
