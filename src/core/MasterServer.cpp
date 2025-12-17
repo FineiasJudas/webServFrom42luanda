@@ -205,58 +205,45 @@ void MasterServer::handleAccept(int listenFd)
 /*
 subject página 09
 
-• Você nunca deve fazer uma operação de leitura ou escrita sem passar por poll()
+1 • Você nunca deve fazer uma operação de leitura ou escrita sem passar por poll()
 (ou equivalente).
 
-• Verificar o valor de errno para ajustar o comportamento do servidor é estritamente
+2 • Verificar o valor de errno para ajustar o comportamento do servidor é estritamente
 proibido após realizar uma operação de leitura ou escrita.
 
-• Você não é obrigado a usar poll() (ou equivalente) antes de read() para recuperar
+3 • Você não é obrigado a usar poll() (ou equivalente) antes de read() para recuperar
 seu arquivo de configuração.
 
--- parece que não estammos a comprir com esses pontos: linha 265 (errno)
+===============  parece que já estamos a comprir com apenas o pontos acima ===============
 */
 
 void MasterServer::handleRead(int clientFd)
 {
-    ssize_t n;
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
     if (it == connections.end())
         return;
 
     Connection *conn = it->second;
 
-    while (true)
-    {
-        n = conn->readFromFd();
-        if (n > 0)
-            continue;
-        else if (n == 0)
-        {
-            closeConnection(clientFd);
-            return;
-        }
-        else if (n == -2)
-            break;
-        else
-        {
-            closeConnection(clientFd);
-            return ;
-        }
-    }
+    //Ler UMA vez (epoll LT)
+    ssize_t n = conn->readFromFd();
+    if (n == 0){return closeConnection(clientFd);}
+    if (n < 0){return;}//nada para ler agora idiota e nem precisas diferenciar erros
 
+    //Processar requisições completas
     int processed = 0;
     size_t max_body = 1024 * 1024;
+
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
         Request req;
 
-        std::map<int, ServerConfig *>::const_iterator vec = listenFdToServers.find(conn->getListenFd());
+        std::map<int, ServerConfig *>::const_iterator vec =
+            listenFdToServers.find(conn->getListenFd());
         if (vec != listenFdToServers.end() && vec->second)
             max_body = vec->second->max_body_size;
 
-        bool ok = HttpParser::parseRequest(conn->getInputBuffer(), req, max_body);
-        if (!ok)
+        if (!HttpParser::parseRequest(conn->getInputBuffer(), req, max_body))
         {
             Response res;
             res.status = 400;
@@ -264,105 +251,84 @@ void MasterServer::handleRead(int clientFd)
             res.headers["Content-Length"] = Utils::toString(res.body.size());
             res.headers["Content-Type"] = "text/html";
             conn->getOutputBuffer().append(res.toString());
-            poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-            Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
-            return ;
+            poller.modifyFd(clientFd, EPOLLOUT);
+            return;
         }
+
         if (req.too_large_body)
         {
             Response res;
-
             res.status = 413;
-            res.body = "<h1>413 Payload Too Large</h1><a href=\"../index.html\">Voltar</a>";
+            res.body = "<h1>413 Payload Too Large</h1>";
             res.headers["Content-Length"] = Utils::toString(res.body.size());
             res.headers["Content-Type"] = "text/html";
             conn->getOutputBuffer().append(res.toString());
-            poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-            Logger::log(Logger::NEW, "Status " + Utils::toString(res.status) + 
-                " " + Response::reasonPhrase(res.status));
+            poller.modifyFd(clientFd, EPOLLOUT);
             conn->getInputBuffer().clear();
-            return ;
+            return;
         }
 
-        // determinar servidor real para este pedido
         ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
         conn->setServer(sc);
 
-        std::string connHdr = "";
+        std::string connHdr;
         if (req.headers.count("Connection"))
             connHdr = req.headers.at("Connection");
-        if (connHdr == "close")
-            conn->setCloseAfterSend(true);
-        else if (req.version == "HTTP/1.0" && connHdr != "keep-alive")
-            conn->setCloseAfterSend(true);
-        else
-            conn->setCloseAfterSend(false);
 
-        Logger::log(Logger::INFO, req.method + " " + req.uri + 
-            " " + req.version + " recebido na FD " + Utils::toString(clientFd));
+        conn->setCloseAfterSend(
+            connHdr == "close" ||
+            (req.version == "HTTP/1.0" && connHdr != "keep-alive"));
 
-        // Roteamento
         Response res = Router::route(req, *sc);
-
-        res.status >= 200 && res.status <= 300 ? Logger::log(Logger::DEBUG, "Status " + Utils::toString(res.status) + 
-        " " + Response::reasonPhrase(res.status)) : res.status >= 400 && res.status <= 500 ? 
-            Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status))
-                : Logger::log(Logger::WINT, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
-
         conn->getOutputBuffer().append(res.toString());
 
         processed++;
     }
 
     if (processed > 0)
-        poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
+        poller.modifyFd(clientFd, EPOLLOUT);
 }
 
-void    MasterServer::handleWrite(int clientFd)
+void MasterServer::handleWrite(int clientFd)
 {
-    ssize_t     sent;
-    Connection *conn = connections[clientFd];
-    if (!conn)
-        return ;
+    std::map<int, Connection *>::iterator it = connections.find(clientFd);
+    if (it == connections.end())
+        return;
 
+    Connection *conn = it->second;
     Buffer &out = conn->getOutputBuffer();
-    if (out.empty())
+
+    if (out.empty())// nada para escrever
     {
         conn->waiting_for_write = false;
-        poller.modifyFd(clientFd, EPOLLIN | EPOLLET);
+        poller.modifyFd(clientFd, EPOLLIN);
         return;
     }
+
     if (!conn->waiting_for_write)
     {
         conn->waiting_for_write = true;
         conn->write_start_time = time(NULL);
     }
 
-    sent = conn->writeToFd(out.data(), out.size());
-    if (sent > 0)
-        out.consume(sent);
-    else if (sent == -2)
-    {
-        // EAGAIN / EWOULDBLOCK → tentar depois
-        return ;
-    }
-    else
-    {
-        // Erro real → remover cliente
-        closeConnection(clientFd);
-        return;
-    }
+    ssize_t sent = conn->writeToFd(out.data(), out.size());
+
+    if (sent > 0){out.consume(sent);}
+    else if (sent == 0){return;}
+    else{return;}
+
     if (conn->shouldCloseAfterSend() && out.empty())
-    {
-        closeConnection(clientFd);
-        return ;
-    }
-    if (out.empty())
+    {return closeConnection(clientFd);}
+
+    if (out.empty())//terminou de escrever
     {
         conn->waiting_for_write = false;
-        poller.modifyFd(clientFd, EPOLLIN | EPOLLET);
+        poller.modifyFd(clientFd, EPOLLIN);
     }
+    else {poller.modifyFd(clientFd, EPOLLOUT);}// continuar a escutar escrita
 }
+
+
 
 void    MasterServer::closeConnection(int clientFd)
 {
