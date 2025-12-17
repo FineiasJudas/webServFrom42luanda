@@ -68,3 +68,22 @@ public:
 [2025-12-14 20:18:03] NEW   | Status 413 Payload Too Large
 [2025-12-14 20:18:19] WARN  | [TIMEOUT] Read Timeout FD 5
 [2025-12-14 20:18:19] WARN  | Conexão fechada FD 5
+
+
+
+
+## Não usar o `errno`
+
+Não precisamos do while no read:
+
+- O controle do fluxo de leitura não é feito pelo `read()`, mas pelo `epoll`/`poll`.  
+- Um socket só entra na função `handleRead()` porque o `poll`/`epoll` indicou que **há dados disponíveis para ler**.
+
+### Comportamento esperado:
+
+1. Quando os dados acabam, o `read()` retorna `-1`.  
+2. Nesse ponto, nós **paramos de ler** e voltamos ao loop principal.  
+3. O próximo evento de leitura será tratado **quando o `poll`/`epoll` indicar novamente** que há dados.  
+
+**Conclusão:**  
+Não é necessário diferenciar entre “erro temporário” ou “erro real” dentro do `read()`. O epoll/poll garante que você só será notificado quando houver algo a processar. 

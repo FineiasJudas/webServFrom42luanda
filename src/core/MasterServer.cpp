@@ -177,38 +177,40 @@ void    MasterServer::handleAccept(int listenFd)
     c->write_start_time = 0;
     connections[clientFd] = c;
 
-    poller.addFd(clientFd, EPOLLIN | EPOLLET);
+    poller.addFd(clientFd, EPOLLIN);
 
     Logger::log(Logger::NEW, "Nova conexão aceita FD " + Utils::toString(clientFd));
 }
 
+/*
+subject página 09
+
+1 • Você nunca deve fazer uma operação de leitura ou escrita sem passar por poll()
+(ou equivalente).
+
+2 • Verificar o valor de errno para ajustar o comportamento do servidor é estritamente
+proibido após realizar uma operação de leitura ou escrita.
+
+3 • Você não é obrigado a usar poll() (ou equivalente) antes de read() para recuperar
+seu arquivo de configuração.
+
+===============  parece que já estamos a comprir com apenas o pontos acima ===============
+*/
+
 void    MasterServer::handleRead(int clientFd)
 {
-    ssize_t     n;
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
     if (it == connections.end())
         return ;
 
     Connection *conn = it->second;
-    while (true)
-    {
-        n = conn->readFromFd();
-        if (n > 0)
-            continue ;
-        else if (n == 0)
-        {
-            closeConnection(clientFd);
-            return;
-        }
-        else if (n == -2)
-            break ;
-        else
-        {
-            closeConnection(clientFd);
-            return ;
-        }
-    }
 
+    //Ler UMA vez (epoll LT)
+    ssize_t n = conn->readFromFd();
+    if (n == 0){return closeConnection(clientFd);}
+    if (n < 0){return;}//nada para ler agora idiota e nem precisas diferenciar erros
+
+    //Processar requisições completas
     int processed = 0;
     size_t max_body = 1024 * 1024;
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
@@ -280,50 +282,49 @@ void    MasterServer::handleRead(int clientFd)
     }
 
     if (processed > 0)
-        poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
+        poller.modifyFd(clientFd, EPOLLOUT);
 }
 
-void    MasterServer::handleWrite(int clientFd)
+void MasterServer::handleWrite(int clientFd)
 {
-    ssize_t     sent;
-    Connection *conn = connections[clientFd];
-    if (!conn)
-        return ;
+    std::map<int, Connection *>::iterator it = connections.find(clientFd);
+    if (it == connections.end())
+        return;
 
+    Connection *conn = it->second;
     Buffer &out = conn->getOutputBuffer();
-    if (out.empty())
+
+    if (out.empty())// nada para escrever
     {
         conn->waiting_for_write = false;
-        poller.modifyFd(clientFd, EPOLLIN | EPOLLET);
+        poller.modifyFd(clientFd, EPOLLIN);
         return;
     }
+
     if (!conn->waiting_for_write)
     {
         conn->waiting_for_write = true;
         conn->write_start_time = time(NULL);
     }
 
-    sent = conn->writeToFd(out.data(), out.size());
-    if (sent > 0)
-        out.consume(sent);
-    else if (sent == -2)
-        return ;
-    else
-    {
-        closeConnection(clientFd);
-        return;
-    }
+    ssize_t sent = conn->writeToFd(out.data(), out.size());
+
+    if (sent > 0){out.consume(sent);}
+    else if (sent == 0){return;}
+    else{return;}
+
     if (conn->shouldCloseAfterSend() && out.empty())
-    {
-        closeConnection(clientFd);
-        return ;
-    }
-    if (out.empty())
+    {return closeConnection(clientFd);}
+
+    if (out.empty())//terminou de escrever
     {
         conn->waiting_for_write = false;
-        poller.modifyFd(clientFd, EPOLLIN | EPOLLET);
+        poller.modifyFd(clientFd, EPOLLIN);
     }
+    else {poller.modifyFd(clientFd, EPOLLOUT);}// continuar a escutar escrita
 }
+
+
 
 void    MasterServer::closeConnection(int clientFd)
 {
