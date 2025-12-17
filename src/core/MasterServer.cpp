@@ -8,7 +8,7 @@
 #include "./../utils/keywords.hpp"
 #include "../session/SessionManager.hpp"
 
-volatile bool g_running = true;
+volatile sig_atomic_t   g_running = 1;
 
 MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
 {
@@ -50,15 +50,14 @@ int MasterServer::parsePortFromListenString(const std::string &s) const
     return atoi(portstr.c_str());
 }
 
-void MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
+void    MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
 {
-    int fd;
-    int port;
-    int foundFd;
+    int     fd;
+    int     port;
 
     for (size_t i = 0; i < servers.size(); ++i)
     {
-        const ServerConfig &sc = servers[i];
+        const ServerConfig  &sc = servers[i];
 
         if (sc.listen.size() > 0)
         {
@@ -75,28 +74,9 @@ void MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
 
                 continue;
             }
-
-            foundFd = -1;
-            for (std::map<int, ServerConfig *>::iterator it = listenFdToServers.begin();
-                 it != listenFdToServers.end(); ++it)
+            if (std::find(ports.begin(), ports.end(), port) == ports.end())
             {
-                // vamos verificar getsockname
-                struct sockaddr_in addr;
-
-                fd = it->first;
-                socklen_t len = sizeof(addr);
-                if (getsockname(fd, (struct sockaddr *)&addr, &len) == 0)
-                {
-                    if ((int)ntohs(addr.sin_port) == port)
-                    {
-                        foundFd = fd;
-                        break;
-                    }
-                }
-            }
-
-            if (foundFd == -1)
-            {
+                ports.push_back(port);
                 fd = createListenSocketForPort(port);
                 if (fd >= 0)
                 {
@@ -108,7 +88,7 @@ void MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
             }
             else
             {
-                Logger::log(Logger::WARN, "Porta " + Utils::toString(port) + " já ocupada por um Server");
+                Logger::log(Logger::ERROR, "Porta " + Utils::toString(port) + " já ocupada por um Server");
                 continue;
             }
         }
@@ -136,7 +116,7 @@ int MasterServer::createListenSocketForPort(int port)
         flags = 0;
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-    struct sockaddr_in addr;
+    struct sockaddr_in  addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
@@ -197,7 +177,7 @@ void    MasterServer::handleAccept(int listenFd)
     c->write_start_time = 0;
     connections[clientFd] = c;
 
-    poller.addFd(clientFd, EPOLLIN | EPOLLET);
+    poller.addFd(clientFd, EPOLLIN);
 
     Logger::log(Logger::NEW, "Nova conexão aceita FD " + Utils::toString(clientFd));
 }
@@ -233,17 +213,16 @@ void    MasterServer::handleRead(int clientFd)
     //Processar requisições completas
     int processed = 0;
     size_t max_body = 1024 * 1024;
-
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
         Request req;
 
-        std::map<int, ServerConfig *>::const_iterator vec =
-            listenFdToServers.find(conn->getListenFd());
+        std::map<int, ServerConfig *>::const_iterator vec = listenFdToServers.find(conn->getListenFd());
         if (vec != listenFdToServers.end() && vec->second)
             max_body = vec->second->max_body_size;
 
-        if (!HttpParser::parseRequest(conn->getInputBuffer(), req, max_body))
+        bool ok = HttpParser::parseRequest(conn->getInputBuffer(), req, max_body);
+        if (!ok)
         {
             Response    res;
 
@@ -252,35 +231,51 @@ void    MasterServer::handleRead(int clientFd)
             res.headers["Content-Length"] = Utils::toString(res.body.size());
             res.headers["Content-Type"] = "text/html";
             conn->getOutputBuffer().append(res.toString());
-            poller.modifyFd(clientFd, EPOLLOUT);
-            return;
+            poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
+            Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
+            return ;
         }
-
         if (req.too_large_body)
         {
-            Response res;
+            Response    res;
+
             res.status = 413;
-            res.body = "<h1>413 Payload Too Large</h1>";
+            res.body = "<h1>413 Payload Too Large</h1><a href=\"../index.html\">Voltar</a>";
             res.headers["Content-Length"] = Utils::toString(res.body.size());
             res.headers["Content-Type"] = "text/html";
             conn->getOutputBuffer().append(res.toString());
-            poller.modifyFd(clientFd, EPOLLOUT);
+            poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
+            Logger::log(Logger::NEW, "Status " + Utils::toString(res.status) + 
+                " " + Response::reasonPhrase(res.status));
             conn->getInputBuffer().clear();
-            return;
+            return ;
         }
 
+        // determinar servidor real para este pedido
         ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
         conn->setServer(sc);
 
-        std::string connHdr;
+        std::string connHdr = "";
         if (req.headers.count("Connection"))
             connHdr = req.headers.at("Connection");
+        if (connHdr == "close")
+            conn->setCloseAfterSend(true);
+        else if (req.version == "HTTP/1.0" && connHdr != "keep-alive")
+            conn->setCloseAfterSend(true);
+        else
+            conn->setCloseAfterSend(false);
 
-        conn->setCloseAfterSend(
-            connHdr == "close" ||
-            (req.version == "HTTP/1.0" && connHdr != "keep-alive"));
+        Logger::log(Logger::INFO, req.method + " " + req.uri + 
+            " " + req.version + " recebido na FD " + Utils::toString(clientFd));
 
+        // Roteamento
         Response res = Router::route(req, *sc);
+
+        res.status >= 200 && res.status <= 300 ? Logger::log(Logger::DEBUG, "Status " + Utils::toString(res.status) + 
+        " " + Response::reasonPhrase(res.status)) : res.status >= 400 && res.status <= 500 ? 
+            Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status))
+                : Logger::log(Logger::WINT, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
+
         conn->getOutputBuffer().append(res.toString());
 
         processed++;

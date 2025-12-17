@@ -8,7 +8,7 @@ class   Buffer
     private:
         std::vector<char>   contentData;
 
-    public:
+    public: 
         void    append(const char *src, size_t len);
         void    append(const std::string &str);
         const std::vector<char> &getData() const;

@@ -15,13 +15,13 @@ public:
     static bool isNumber(const std::string &s)
     {
         if (s.empty())
-            return false;
+            return (false);
 
         for (size_t i = 0; i < s.size(); ++i)
             if (!std::isdigit(s[i]))
-                return false;
+                return (false);
 
-        return true;
+        return (true);
     }
     
     static std::string getExtension(const std::string &path)

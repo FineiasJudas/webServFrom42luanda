@@ -43,7 +43,6 @@ ssize_t Connection::writeToFd(const char* data, size_t size)
     ssize_t bytes = ::write(fd, data, size);
     if (bytes > 0)
         updateActivity();
-
     return (bytes);
 }
 

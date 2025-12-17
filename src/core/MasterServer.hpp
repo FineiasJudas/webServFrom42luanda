@@ -20,7 +20,8 @@ class   MasterServer
     private:
         Poller  poller;
         std::map<int, ServerConfig *> listenFdToServers;
-        std::map<int, Connection*> connections;
+        std::map<int, Connection *> connections;
+        std::vector<int>    ports;
 
         int     read_timeout;
         int     write_timeout;
@@ -35,7 +36,7 @@ class   MasterServer
         void    handleWrite(int clientFd);
         void    closeConnection(int clientFd);
 
-        ServerConfig*   selectServerForRequest(const Request &req, int listenFd);
+        ServerConfig    *selectServerForRequest(const Request &req, int listenFd);
 
         void    checkTimeouts();
         bool    isListenFd(int fd) const;
