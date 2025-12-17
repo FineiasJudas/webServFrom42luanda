@@ -176,10 +176,10 @@ ServerConfig *MasterServer::selectServerForRequest(const Request &req, int liste
     return (defaultServer);
 }
 
-void MasterServer::handleAccept(int listenFd)
+void    MasterServer::handleAccept(int listenFd)
 {
-    int flags;
-    int clientFd;
+    int     flags;
+    int     clientFd;
 
     clientFd = accept(listenFd, NULL, NULL);
     if (clientFd < 0)
@@ -217,27 +217,26 @@ seu arquivo de configuração.
 -- parece que não estammos a comprir com esses pontos: linha 265 (errno)
 */
 
-void MasterServer::handleRead(int clientFd)
+void    MasterServer::handleRead(int clientFd)
 {
-    ssize_t n;
+    ssize_t     n;
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
     if (it == connections.end())
-        return;
+        return ;
 
     Connection *conn = it->second;
-
     while (true)
     {
         n = conn->readFromFd();
         if (n > 0)
-            continue;
+            continue ;
         else if (n == 0)
         {
             closeConnection(clientFd);
             return;
         }
         else if (n == -2)
-            break;
+            break ;
         else
         {
             closeConnection(clientFd);
@@ -258,7 +257,8 @@ void MasterServer::handleRead(int clientFd)
         bool ok = HttpParser::parseRequest(conn->getInputBuffer(), req, max_body);
         if (!ok)
         {
-            Response res;
+            Response    res;
+
             res.status = 400;
             res.body = "<h1>400 Bad Request</h1><a href=\"/\">Voltar</a>";
             res.headers["Content-Length"] = Utils::toString(res.body.size());
@@ -270,7 +270,7 @@ void MasterServer::handleRead(int clientFd)
         }
         if (req.too_large_body)
         {
-            Response res;
+            Response    res;
 
             res.status = 413;
             res.body = "<h1>413 Payload Too Large</h1><a href=\"../index.html\">Voltar</a>";
@@ -342,13 +342,9 @@ void    MasterServer::handleWrite(int clientFd)
     if (sent > 0)
         out.consume(sent);
     else if (sent == -2)
-    {
-        // EAGAIN / EWOULDBLOCK → tentar depois
         return ;
-    }
     else
     {
-        // Erro real → remover cliente
         closeConnection(clientFd);
         return;
     }

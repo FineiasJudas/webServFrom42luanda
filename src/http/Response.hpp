@@ -51,19 +51,24 @@ Response    methodGet(const ServerConfig &config,
                            const std::string &uri);
 
 Response   methodPost(const Request &req,
-    const ServerConfig &config, const std::string &path);
+    const ServerConfig &config, const std::string &path, const LocationConfig &loc);
 
-Response    methodDelete(const std::string &path, const ServerConfig &config);
+Response    methodDelete(const std::string &path, const ServerConfig &config, 
+    const LocationConfig &loc);
 
 Response    notAloweMethodResponse(const ServerConfig &config);
 
-Response forbiddenPageResponse(const ServerConfig &config);
+Response    forbiddenPageResponse(const ServerConfig &config);
 
-Response methodPostMultipart(const Request &req,
-                             const std::string &uploadDir);
+Response methodPostMultipart(const Request &req, const std::string &uploadDir,
+    const LocationConfig &loc, const ServerConfig &config);
 
 std::string  readFile(const std::string &path);
+
 bool    fileExists(const std::string &path);
+
 bool    dirExists(const std::string &path);
+
+bool    isAllowedMethod(const LocationConfig &loc, const std::string &method);
 
 #endif

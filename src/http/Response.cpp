@@ -217,6 +217,8 @@ Response    methodGet(const ServerConfig &config,
                            const std::string &str,
                            const std::string &uri)
 {
+    if (!isAllowedMethod(loc, "GET"))
+        return notAloweMethodResponse(config);
     size_t  p;
     Response    res;
     std::string path = const_cast<std::string &>(str);
@@ -280,9 +282,10 @@ Response    methodGet(const ServerConfig &config,
 
 Response methodPost(const Request &req,
                     const ServerConfig &config,
-                    const std::string &path)
+                    const std::string &path, const LocationConfig &loc)
 {
-    (void)config;
+    if (!isAllowedMethod(loc, "POST"))
+        return notAloweMethodResponse(config);
     Response    res;
 
     // Não pode ser um diretório
@@ -334,8 +337,11 @@ Response methodPost(const Request &req,
     return res;
 }
 
-Response   methodDelete(const std::string &path, const ServerConfig &config)
+Response   methodDelete(const std::string &path, 
+    const ServerConfig &config, const LocationConfig &loc)
 {
+    if (!isAllowedMethod(loc, "DELETE"))
+        return notAloweMethodResponse(config);
     Response    res;
 
     if (fileExists(path))
@@ -377,9 +383,12 @@ Response    notAloweMethodResponse(const ServerConfig &config)
     return (res);
 }
 
-Response    methodPostMultipart(const Request &req,
-                             const std::string &uploadDir)
+Response    methodPostMultipart(const Request &req, const std::string &uploadDir,
+    const LocationConfig &loc, const ServerConfig &config)
 {
+    if (!isAllowedMethod(loc, "POST"))
+        return notAloweMethodResponse(config);
+
     Response    res;
     std::string filename, filedata;
 
@@ -413,4 +422,17 @@ Response    methodPostMultipart(const Request &req,
     res.headers["Content-Type"] = "text/html";
     res.headers["Content-Length"] = Utils::toString(res.body.size());
     return res;
+}
+
+bool    isAllowedMethod(const LocationConfig &loc, const std::string &method)
+{
+    if (loc.methods.empty())
+        return (true);
+
+    for (size_t i = 0; i < loc.methods.size(); i++)
+    {
+        if (loc.methods[i] == method)
+            return (true);
+    }
+    return (false);
 }
