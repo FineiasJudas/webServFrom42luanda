@@ -1,10 +1,13 @@
 #include "Signal.hpp"
 #include <iostream>
 
-static void sigint_handler(int)
+static void sigint_handler(int signum)
 {
-    g_running = false;
-    std::cout << "\n🛑 SIGINT recebido — encerrando servidor...\n";
+    if (signum == SIGINT)
+    {
+        g_running = 0;
+        std::cout << "\n🛑 SIGINT recebido — encerrando servidor...\n";
+    }
 }
 
 void    setupSignalHandlers()
@@ -15,4 +18,5 @@ void    setupSignalHandlers()
     sa.sa_flags = 0;
 
     sigaction(SIGINT, &sa, NULL);
+    signal(SIGPIPE, SIG_IGN);
 }

@@ -8,7 +8,7 @@
 #include "./../utils/keywords.hpp"
 #include "../session/SessionManager.hpp"
 
-volatile bool g_running = true;
+volatile sig_atomic_t   g_running = 1;
 
 MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
 {
@@ -50,15 +50,14 @@ int MasterServer::parsePortFromListenString(const std::string &s) const
     return atoi(portstr.c_str());
 }
 
-void MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
+void    MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
 {
-    int fd;
-    int port;
-    int foundFd;
+    int     fd;
+    int     port;
 
     for (size_t i = 0; i < servers.size(); ++i)
     {
-        const ServerConfig &sc = servers[i];
+        const ServerConfig  &sc = servers[i];
 
         if (sc.listen.size() > 0)
         {
@@ -75,28 +74,9 @@ void MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
 
                 continue;
             }
-
-            foundFd = -1;
-            for (std::map<int, ServerConfig *>::iterator it = listenFdToServers.begin();
-                 it != listenFdToServers.end(); ++it)
+            if (std::find(ports.begin(), ports.end(), port) == ports.end())
             {
-                // vamos verificar getsockname
-                struct sockaddr_in addr;
-
-                fd = it->first;
-                socklen_t len = sizeof(addr);
-                if (getsockname(fd, (struct sockaddr *)&addr, &len) == 0)
-                {
-                    if ((int)ntohs(addr.sin_port) == port)
-                    {
-                        foundFd = fd;
-                        break;
-                    }
-                }
-            }
-
-            if (foundFd == -1)
-            {
+                ports.push_back(port);
                 fd = createListenSocketForPort(port);
                 if (fd >= 0)
                 {
@@ -108,7 +88,7 @@ void MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
             }
             else
             {
-                Logger::log(Logger::WARN, "Porta " + Utils::toString(port) + " já ocupada por um Server");
+                Logger::log(Logger::ERROR, "Porta " + Utils::toString(port) + " já ocupada por um Server");
                 continue;
             }
         }
@@ -136,7 +116,7 @@ int MasterServer::createListenSocketForPort(int port)
         flags = 0;
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-    struct sockaddr_in addr;
+    struct sockaddr_in  addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
@@ -201,21 +181,6 @@ void    MasterServer::handleAccept(int listenFd)
 
     Logger::log(Logger::NEW, "Nova conexão aceita FD " + Utils::toString(clientFd));
 }
-
-/*
-subject página 09
-
-• Você nunca deve fazer uma operação de leitura ou escrita sem passar por poll()
-(ou equivalente).
-
-• Verificar o valor de errno para ajustar o comportamento do servidor é estritamente
-proibido após realizar uma operação de leitura ou escrita.
-
-• Você não é obrigado a usar poll() (ou equivalente) antes de read() para recuperar
-seu arquivo de configuração.
-
--- parece que não estammos a comprir com esses pontos: linha 265 (errno)
-*/
 
 void    MasterServer::handleRead(int clientFd)
 {
