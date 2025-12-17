@@ -5,7 +5,7 @@
 #include <sstream>
 #include <cstdlib>
 
-SessionManager  g_sessions(60 * 2);
+SessionManager  g_sessions(60 * 5);
 
 static std::string  generateRandomId()
 {
@@ -40,7 +40,7 @@ bool    SessionManager::hasSession(const std::string &sid) const
 
 SessionData &SessionManager::getSession(const std::string &sid)
 {
-    return sessions[sid];
+    return  sessions[sid];
 }
 
 void    SessionManager::updateSession(const std::string &sid)

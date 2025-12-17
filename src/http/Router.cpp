@@ -237,6 +237,7 @@ static std::string makeRealPath(const std::string &uri,
     return root + suffix;
 }
 
+
 Response    Router::route(const Request &req, const ServerConfig &config)
 {
     Response r;
@@ -295,12 +296,12 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     if (rq.method == "POST")
     {
         if (!loc.upload_dir.empty())
-            return methodPostMultipart(rq, loc.upload_dir);
-        return methodPost(rq, config, fsPath);
+            return methodPostMultipart(rq, loc.upload_dir, loc, config);
+        return methodPost(rq, config, fsPath, loc);
     }
 
     if (rq.method == "DELETE")
-        return methodDelete(fsPath, config);
+        return methodDelete(fsPath, config, loc);
 
     return notAloweMethodResponse(config);
 }

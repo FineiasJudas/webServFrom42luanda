@@ -176,10 +176,10 @@ ServerConfig *MasterServer::selectServerForRequest(const Request &req, int liste
     return (defaultServer);
 }
 
-void MasterServer::handleAccept(int listenFd)
+void    MasterServer::handleAccept(int listenFd)
 {
-    int flags;
-    int clientFd;
+    int     flags;
+    int     clientFd;
 
     clientFd = accept(listenFd, NULL, NULL);
     if (clientFd < 0)
@@ -217,11 +217,11 @@ seu arquivo de configuração.
 ===============  parece que já estamos a comprir com apenas o pontos acima ===============
 */
 
-void MasterServer::handleRead(int clientFd)
+void    MasterServer::handleRead(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
     if (it == connections.end())
-        return;
+        return ;
 
     Connection *conn = it->second;
 
@@ -245,7 +245,8 @@ void MasterServer::handleRead(int clientFd)
 
         if (!HttpParser::parseRequest(conn->getInputBuffer(), req, max_body))
         {
-            Response res;
+            Response    res;
+
             res.status = 400;
             res.body = "<h1>400 Bad Request</h1><a href=\"/\">Voltar</a>";
             res.headers["Content-Length"] = Utils::toString(res.body.size());

@@ -17,8 +17,7 @@ class   Router
         static bool handleCsrf(const Request &req, Response &res);
         static bool handleLogin(const Request &req, Response &res);
         static bool handleLogout(const Request &req, Response &res);
-
-
+        static LocationConfig   findLocConfig(const std::string &uri, const ServerConfig &config);
 
 };
 

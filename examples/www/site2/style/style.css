@@ -1,0 +1,317 @@
+:root
+{
+    --bg-color: #ffffff;
+    --bt-color: #0c574d;
+    --font: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    --font-color: #181818;
+    --theme-color: var(--bt-color);
+    --spacing-sm: 10px;
+    --spacing-md: 20px;
+    --spacing-lg: 40px;
+}
+
+*
+{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body
+{
+    background-color: var(--bg-color);
+    font-family: var(--font);
+    line-height: 1.6;
+}
+
+.page-wrapper
+{
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding-left: 200px;
+}
+
+.header
+{
+    display: flex;
+    gap: 300px;
+    align-items: center;
+    padding: var(--spacing-md);
+}
+
+.header > div
+{
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--font-color);
+}
+
+nav
+{
+    display: flex;
+    width: 30%;
+    gap: var(--spacing-sm);
+}
+
+nav a
+{
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 25px;
+    color: var(--font-color);
+    padding: var(--spacing-sm);
+}
+
+nav a:hover
+{
+    color: var(--bt-color);
+    font-size: 30px;
+}
+
+.main
+{
+    flex: 1;
+    display: flex;
+    margin-top: 60px;
+    flex-direction: column;
+    padding-top: var(--spacing-lg);
+}
+
+.main > div
+{
+    gap: 50px;
+    display: flex;
+    flex-wrap: wrap;
+    padding: var(--spacing-md);
+}
+
+.introdution
+{
+    max-width: 500px;
+}
+
+.introdution > p
+{
+    padding: var(--spacing-sm);
+    font-weight: 600;
+    font-size: 28px;
+    line-height: 1.0;
+    color: var(--font);
+}
+
+#details
+{
+    color: #302f2f;
+    font-weight: 400;
+    color: var(--font-color);
+    font-size: 20px;
+}
+
+.photo
+{
+    text-align: center;
+    max-width: 420px;
+}
+
+img
+{
+    height: 440px;
+}
+
+h2
+{
+    font-size: 32px;
+    line-height: 0.5;
+    color: var(--font);
+    margin-left: var(--spacing-sm);
+}
+
+#button
+{
+    width: 30%;
+    padding: 20px;
+    margin-top: var(--spacing-md);
+    margin-left: var(--spacing-sm);
+    border-radius: 8px;
+    border: none;
+    font-size: 18px;
+    background-color: var(--bt-color);
+    color: var(--bg-color);
+    cursor: pointer;
+}
+
+#button:hover
+{
+    background-color: #1f8b7d;
+}
+
+.footer
+{
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    color: white;
+}
+
+.social-icon svg
+{
+    width: 70px;
+    height: 70px;
+}
+
+.skill
+{
+    width: 350px;
+    padding: 40px 20px;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--font-color);
+    border-radius: 10px;
+    font-family: var(--font);
+    border: 1px solid var(--bt-color);
+}
+.skill > h4 
+{
+    margin: 10px 0 10px;
+}
+
+.main .skills
+{
+    width: 80%;
+    display: flex;
+    line-height: 1.2;
+    gap: var(--spacing-md);
+}
+
+.skillIcon
+{
+    width: 40px;
+    height: 40px;
+}
+
+word
+{
+    color: var(--theme-color);
+}
+
+.contact 
+{
+    display: flex;
+    align-items: center;
+}
+
+.contacts
+{
+    width: 50%;
+    display: grid;
+    align-items: center;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-sm); 
+}
+
+.contacts > div
+{
+    display: flex;
+    align-items: center;
+    text-align: center;
+    width: 200px;
+    gap: 8px;
+    padding: 10px 20px;
+    border: 1px solid var(--bt-color);
+    border-radius: 10px;
+}
+
+@media (max-width: 768px)
+{
+    .page-wrapper
+    {
+        padding-left: 0;
+    }
+    .page-wrapper p
+    {
+        font-size: 18px;
+    }
+     .page-wrapper .title
+    {
+        font-size: 23px;
+    }
+    .header
+    {
+        flex-direction: column;
+        align-items: center;
+        gap: var(--spacing-sm);
+    }
+    nav
+    {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    nav a
+    {
+        font-size: 18px;
+        padding: var(--spacing-sm);
+    }
+
+    .main > div
+    {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .main
+    {
+        margin-top: 0px;
+    }
+    .introdution
+    {
+        width: 90%;
+    }
+
+    #details
+    {
+        font-size: 18px;
+    }
+
+    .photo img
+    {
+        height: auto;
+        max-width: 100%;
+    }
+    #button
+    {
+        width: 40%;
+        font-size: 16px;
+    }
+    .main .skills
+    {
+        width: 100%;
+    }
+    .skill
+    {
+        width: 300px;
+        font-size: 17px;
+        padding: 20px;
+
+    }
+    .skillIcon{
+        width: 34px;
+        height: 34px;
+    }
+    .contacts > div
+    {
+        width: 100%;
+    }
+    .footer
+    {
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+    }
+    .social-icon svg {
+        width: 50px;
+        height: 50px;
+    }
+}
