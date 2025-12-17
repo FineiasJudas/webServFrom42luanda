@@ -17,6 +17,7 @@ class   Poller
 {
     private:
         int     epfd;
+        
         std::vector<struct epoll_event> eventBuffer;
 
     public:

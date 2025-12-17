@@ -21,6 +21,7 @@ namespace KW {
     const std::string UPLOAD_DIR = "upload_dir";
 
 
+    
     //caracteres especiais
     const std::string BLOCK_START = "{";
     const std::string BLOCK_END = "}";

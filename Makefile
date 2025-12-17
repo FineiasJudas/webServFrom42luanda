@@ -1,7 +1,7 @@
 NAME = webserv
 
 CXX = c++
-CXXFLAGS = -Wall -Wextra -Werror -std=c++98
+CXXFLAGS = -Wall -Wextra -Werror -std=c++98 -MMD -MP
 INCLUDES = -Iincludes
 
 RM = rm -f
@@ -22,6 +22,7 @@ SRCS = \
     src/utils/Logger.cpp
 
 OBJS = $(SRCS:.cpp=.o)
+DEPS = $(OBJS:.o=.d)
 
 all: $(NAME)
 
@@ -30,13 +31,16 @@ $(NAME): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $(NAME) $(OBJS)
 	@echo "Construção completa..."
 
-
+# Regra generica para compilar .cpp em .o
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
 
+# incluir arquivos hpp (.d) gerados automaticamente
+-include $(DEPS)
+
 clean:
 	@echo "Limpando arquivos objeto..."
-	$(RM) $(OBJS)
+	$(RM) $(OBJS) $(DEPS)
 
 fclean: clean
 	@echo "Limpando executável..."
