@@ -207,15 +207,17 @@ void    MasterServer::handleRead(int clientFd)
 
     //Ler UMA vez (epoll LT)
     ssize_t n = conn->readFromFd();
-    if (n == 0){return closeConnection(clientFd);}
-    if (n < 0){return;}//nada para ler agora idiota e nem precisas diferenciar erros
+    if (n == 0)
+        return closeConnection(clientFd);
+    if (n < 0)
+        return ;//nada para ler agora idiota e nem precisas diferenciar erros
 
     //Processar requisições completas
     int processed = 0;
     size_t max_body = 1024 * 1024;
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
-        Request req;
+        Request     req;
 
         std::map<int, ServerConfig *>::const_iterator vec = listenFdToServers.find(conn->getListenFd());
         if (vec != listenFdToServers.end() && vec->second)
@@ -375,9 +377,9 @@ void    MasterServer::checkTimeouts()
         closeConnection(toClose[i]);
 }
 
-void MasterServer::run()
+void    MasterServer::run()
 {
-    int fd;
+    int     fd;
 
     Logger::log(Logger::INFO, "MasterServer iniciado...");
     while (g_running)

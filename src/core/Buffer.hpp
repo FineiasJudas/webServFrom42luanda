@@ -5,7 +5,7 @@
 
 class   Buffer
 {
-    private:
+    private: 
         std::vector<char>   contentData;
 
     public: 

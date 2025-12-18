@@ -1,6 +1,8 @@
-#include "HttpParser.hpp"
 #include "../utils/Utils.hpp"
+#include "HttpParser.hpp"
+#include <sstream>
 #include <cstdlib>
+#include <string>
 
 static std::string trim(const std::string &s)
 {
@@ -30,7 +32,8 @@ bool HttpParser::hasCompleteRequest(const Buffer &buffer)
 
         if (eol == std::string::npos)
             return (false);
-        std::string val = data.substr(pos + strlen("Content-Length:"), eol - (pos + strlen("Content-Length:")));
+        std::string val = data.substr(pos + std::string("Content-Length:").size(),
+             eol - (pos + std::string("Content-Length:").size()));
         val = trim(val);
 
         int length = atoi(val.c_str());
@@ -57,8 +60,12 @@ std::string HttpParser::urlDecode(const std::string &str)
         {
             hex[0] = str[i + 1];
             hex[1] = str[i + 2];
-            char decoded = static_cast<char>(strtol(hex, NULL, 16));
-            result += decoded;
+
+            int value;
+            std::istringstream iss(std::string(hex, 2));
+            iss >> std::hex >> value;
+
+            result += static_cast<char>(value);
             i += 2;
         }
         else
@@ -66,7 +73,6 @@ std::string HttpParser::urlDecode(const std::string &str)
             result += str[i];
         }
     }
-
     return result;
 }
 

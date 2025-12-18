@@ -261,7 +261,7 @@ CgiResult CgiHandler::execute(const Request &req,
     argv_vec.push_back(strdup(interpreter.c_str()));
 
     argv_vec.push_back(strdup(script_path.c_str()));
-     for (std::map<std::string, std::string>::const_iterator it = req.query.begin();
+    for (std::map<std::string, std::string>::const_iterator it = req.query.begin();
          it != req.query.end();
          ++it)
     {

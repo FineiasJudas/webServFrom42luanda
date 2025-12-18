@@ -23,24 +23,27 @@ Connection::~Connection()
 
 ssize_t Connection::readFromFd()
 {
+    ssize_t bytes;
     char    buffer[4096];
 
-    ssize_t bytes = ::read(fd, buffer, sizeof(buffer));
+    bytes = ::read(fd, buffer, sizeof(buffer));
     if (bytes > 0)
     {
         input_buffer.append(buffer, bytes);
         updateActivity();
-        return bytes;
-    }// leitura bem sucedida
+        return (bytes);
+    } // leitura bem sucedida
 
-    if (bytes == 0){return (0);}// conexão fechada pelo cliente
-
-    return (-1);// erro na leitura
+    if (bytes == 0)
+        return (0); // conexão fechada pelo cliente
+    return (-1); // erro na leitura
 }
 
 ssize_t Connection::writeToFd(const char* data, size_t size)
 {
-    ssize_t bytes = ::write(fd, data, size);
+    ssize_t     bytes;
+
+    bytes = ::write(fd, data, size);
     if (bytes > 0)
         updateActivity();
     return (bytes);
