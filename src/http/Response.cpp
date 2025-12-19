@@ -346,7 +346,7 @@ Response   methodDelete(const std::string &path,
 
     if (fileExists(path))
     {
-        remove(path.c_str());
+        std::remove(path.c_str());
         res.status = 204;
         res.body = "";
         res.headers["Content-Length"] = "0";

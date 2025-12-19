@@ -200,7 +200,9 @@ Response    handleDeleteFile(const Request &req, const ServerConfig &config)
 
     std::string fullpath = config.locations[i].root + "/" + filename;
 
-    if (unlink(fullpath.c_str()) != 0)
+    if (fileExists(fullpath))
+        std::remove(fullpath.c_str());
+    else
     {
         r.status = 500;
         r.body = "{\"error\": \"failed to delete\"}";

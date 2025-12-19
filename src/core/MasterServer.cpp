@@ -47,7 +47,7 @@ int MasterServer::parsePortFromListenString(const std::string &s) const
         portstr = s.substr(colon + 1);
     if (portstr.empty() || !Utils::isNumber(portstr))
         return (-1);
-    return atoi(portstr.c_str());
+    return std::atoi(portstr.c_str());
 }
 
 void    MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
@@ -203,56 +203,49 @@ void    MasterServer::handleRead(int clientFd)
     if (it == connections.end())
         return ;
 
+    size_t max_body = 1024 * 1024;
     Connection *conn = it->second;
+    std::map<int, ServerConfig *>::const_iterator vec = listenFdToServers.find(conn->getListenFd());
+    if (vec != listenFdToServers.end() && vec->second)
+        max_body = vec->second->max_body_size;
 
     //Ler UMA vez (epoll LT)
     ssize_t n = conn->readFromFd();
+    if (conn->getInputBuffer().size() > max_body)
+    {
+        Response    res;
+
+        res.status = 413;
+        res.body = "<h1>413 Payload Too Large</h1><a href=\"/\">Voltar</a>";
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.headers["Content-Type"] = "text/html";
+        conn->getOutputBuffer().append(res.toString());
+        poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
+        Logger::log(Logger::NEW, "Status " + Utils::toString(res.status) + 
+            " " + Response::reasonPhrase(res.status));
+        conn->getInputBuffer().clear();
+        return ;
+    }
     if (n == 0)
-        return closeConnection(clientFd);
+    {
+        closeConnection(clientFd);
+        return ;
+    }
     if (n < 0)
-        return ;//nada para ler agora idiota e nem precisas diferenciar erros
+    {
+        closeConnection(clientFd);
+        return ;
+    }//nada para ler agora idiota e nem precisas diferenciar erros
 
     //Processar requisições completas
     int processed = 0;
-    size_t max_body = 1024 * 1024;
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
         Request     req;
 
-        std::map<int, ServerConfig *>::const_iterator vec = listenFdToServers.find(conn->getListenFd());
-        if (vec != listenFdToServers.end() && vec->second)
-            max_body = vec->second->max_body_size;
-
         bool ok = HttpParser::parseRequest(conn->getInputBuffer(), req, max_body);
         if (!ok)
-        {
-            Response    res;
-
-            res.status = 400;
-            res.body = "<h1>400 Bad Request</h1><a href=\"/\">Voltar</a>";
-            res.headers["Content-Length"] = Utils::toString(res.body.size());
-            res.headers["Content-Type"] = "text/html";
-            conn->getOutputBuffer().append(res.toString());
-            poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-            Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
-            return ;
-        }
-        if (req.too_large_body)
-        {
-            Response    res;
-
-            res.status = 413;
-            res.body = "<h1>413 Payload Too Large</h1><a href=\"../index.html\">Voltar</a>";
-            res.headers["Content-Length"] = Utils::toString(res.body.size());
-            res.headers["Content-Type"] = "text/html";
-            conn->getOutputBuffer().append(res.toString());
-            poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-            Logger::log(Logger::NEW, "Status " + Utils::toString(res.status) + 
-                " " + Response::reasonPhrase(res.status));
-            conn->getInputBuffer().clear();
-            return ;
-        }
-
+           break ;
         // determinar servidor real para este pedido
         ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
         conn->setServer(sc);
@@ -279,7 +272,7 @@ void    MasterServer::handleRead(int clientFd)
                 : Logger::log(Logger::WINT, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
 
         conn->getOutputBuffer().append(res.toString());
-
+        conn->getInputBuffer().clear();
         processed++;
     }
 
@@ -287,7 +280,7 @@ void    MasterServer::handleRead(int clientFd)
         poller.modifyFd(clientFd, EPOLLOUT);
 }
 
-void MasterServer::handleWrite(int clientFd)
+void    MasterServer::handleWrite(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
     if (it == connections.end())

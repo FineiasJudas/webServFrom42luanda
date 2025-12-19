@@ -205,12 +205,6 @@ CgiResult CgiHandler::execute(const Request &req,
         return result;
     }
 
-    /*
-
-    criar uma funcao auxi, para isto também
-
-    */
-
     // ------------------ INTERPRETER ---------------------
     std::string interpreter;
     if (cgiConfig.path.empty())
@@ -241,33 +235,33 @@ CgiResult CgiHandler::execute(const Request &req,
         return result;
     }
 
-    /*
-    criar BUILD ENV e ARGV  para cada tipo de extencao.
-    criar em remover este codigo desta funcao e criar uma funcao aux
-    */
-
     // ------------------ BUILD ENV -----------------------
-    std::vector<std::string> env_strings = buildEnv(req, script_path, config, cgiConfig);
+    // Instead of strdup (POSIX), keep std::string storage and use c_str() pointers.
+    // In C++98, c_str() returns const char*, so we cast away const for execve.
+    std::vector<std::string> env_storage = buildEnv(req, script_path, config, cgiConfig);
     std::vector<char *> envp;
-    for (size_t i = 0; i < env_strings.size(); i++)
-        envp.push_back(strdup(env_strings[i].c_str()));
+    envp.reserve(env_storage.size() + 1);
+    for (size_t i = 0; i < env_storage.size(); ++i)
+        envp.push_back(const_cast<char *>(env_storage[i].c_str()));
     envp.push_back(NULL);
 
     // ------------------ ARGV ----------------------------
-    std::vector<char *> argv_vec;
-    if (interpreter.empty()){
-        std::cout << "INTERPERTADOR VAZIO NAO!!!!!" << std::endl;
-    }
-    argv_vec.push_back(strdup(interpreter.c_str()));
-
-    argv_vec.push_back(strdup(script_path.c_str()));
+    std::vector<std::string> argv_storage;
+    argv_storage.reserve(2 + req.query.size());
+    argv_storage.push_back(interpreter);
+    argv_storage.push_back(script_path);
     for (std::map<std::string, std::string>::const_iterator it = req.query.begin();
          it != req.query.end();
          ++it)
     {
         std::string pair = it->first + "=" + it->second;
-        argv_vec.push_back(strdup(pair.c_str()));
+        argv_storage.push_back(pair);
     }
+
+    std::vector<char *> argv_vec;
+    argv_vec.reserve(argv_storage.size() + 1);
+    for (size_t i = 0; i < argv_storage.size(); ++i)
+        argv_vec.push_back(const_cast<char *>(argv_storage[i].c_str()));
     argv_vec.push_back(NULL);
 
     int stdin_pipe[2];
@@ -352,7 +346,7 @@ CgiResult CgiHandler::execute(const Request &req,
             else
             {
                 if (config.cgi_timeout > 0 &&
-                    difftime(time(NULL), start_time) > config.cgi_timeout)
+                    (time(NULL) - start_time) > config.cgi_timeout)
                 {
                     kill(pid, SIGKILL);
                     waitpid(pid, NULL, 0);
@@ -363,7 +357,6 @@ CgiResult CgiHandler::execute(const Request &req,
 
             usleep(10000);
         }
-
         close(stdout_pipe[0]);
     }
 
@@ -392,18 +385,7 @@ CgiResult CgiHandler::execute(const Request &req,
         result.raw_output = output;
     }
 
-    /*
-            pode ser outra funcao auxi
-    */
-    // ----------------------------------------------------
-    // CLEANUP MEMORY
-    // ----------------------------------------------------
-    for (size_t i = 0; i < envp.size(); i++)
-        free(envp[i]);
-
-    for (size_t i = 0; i < argv_vec.size(); i++)
-        free(argv_vec[i]);
-
+    // No manual free required: env_storage and argv_storage hold the buffers.
     return result;
 }
 
@@ -414,9 +396,6 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
     // 1. separar headers e body
     // Tenta CRLF primeiro (padrão CGI)
     size_t pos = raw.find("\r\n\r\n");
-
-    std::cout << "\nRaw CGI Output:\n"
-              << raw << std::endl;
 
     // Se não existir, tenta LF-LF (Python print padrão)
     if (pos == std::string::npos)
@@ -463,7 +442,7 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
         if (key == "Status")
         {
             has_status = true;
-            res.status = atoi(val.c_str());
+            res.status = std::atoi(val.c_str());
         }
         else
         {
@@ -493,9 +472,6 @@ Response CgiHandler::handleCgiRequest(const Request &req,
 
 //    std::string script_path = loc.root + req.uri.substr(loc.path.size());
     std::string script_path = loc.root + "/" + req.path.substr(loc.path.size());
-    std::cout << "SCRIPT_PATH :: " << script_path << std::endl;
-
-
 
     // passar de alguma forma a extencao
     CgiResult result = CgiHandler::execute(req, script_path, config, loc, cgiConfig);

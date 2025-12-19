@@ -19,30 +19,28 @@ static std::string trim(const std::string &s)
 bool HttpParser::hasCompleteRequest(const Buffer &buffer)
 {
     std::string data = buffer.toString();
+
     size_t header_end = data.find("\r\n\r\n");
-
     if (header_end == std::string::npos)
-        return (false);
+        return false;
 
-    // If Content-Length present, check body length
+    // Detectar chunked
+    if (data.find("Transfer-Encoding: chunked") != std::string::npos)
+        return true; // parseChunkedBody decide depois
+
+    // Content-Length
     size_t pos = data.find("Content-Length:");
     if (pos != std::string::npos)
     {
-        size_t eol = data.find("\r\n", pos);
+        size_t end = data.find("\r\n", pos);
+        std::string len_str = data.substr(pos + 15, end - (pos + 15));
+        size_t len = std::atoi(len_str.c_str());
 
-        if (eol == std::string::npos)
-            return (false);
-        std::string val = data.substr(pos + std::string("Content-Length:").size(),
-             eol - (pos + std::string("Content-Length:").size()));
-        val = trim(val);
-
-        int length = atoi(val.c_str());
-        size_t body_start = header_end + 4;
-
-        if (data.size() - body_start < (size_t)length)
-            return (false);
+        return data.size() >= header_end + 4 + len;
     }
-    return (true);
+
+    // Sem body
+    return true;
 }
 
 std::string HttpParser::urlDecode(const std::string &str)
@@ -115,147 +113,116 @@ void HttpParser::parseQueryParams(Request &req)
     }
 }
 
-bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
+bool HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
 {
     std::string data = buffer.toString();
     size_t header_end = data.find("\r\n\r\n");
-
     if (header_end == std::string::npos)
-        return (false);
+        return false;
 
-    req.header_end = header_end + 4; // guardar posição para chunked
+    req.header_end = header_end + 4;
 
+    // ===== Parse request line + headers =====
     std::string headers_block = data.substr(0, header_end);
     std::istringstream ss(headers_block);
     std::string line;
 
-    // Request line
     if (!std::getline(ss, line))
-        return (false);
+        return false;
     if (!line.empty() && line[line.size() - 1] == '\r')
         line.erase(line.size() - 1);
+
     {
         std::istringstream ls(line);
         ls >> req.method >> req.uri >> req.version;
     }
-    // <-- Aqui, validar a linha antes de continuar
+
     if (req.method.empty() || req.uri.empty() || req.version.empty())
-        return false; // request inválida
+        return false;
 
-    // Agora sim, extrair query params
-    HttpParser::parseQueryParams(req);
+    parseQueryParams(req);
 
-    // Headers
     while (std::getline(ss, line))
     {
         if (!line.empty() && line[line.size() - 1] == '\r')
             line.erase(line.size() - 1);
         if (line.empty())
-            break ;
+            break;
+
         size_t colon = line.find(':');
         if (colon == std::string::npos)
-            continue ;
+            continue;
+
         std::string key = trim(line.substr(0, colon));
         std::string val = trim(line.substr(colon + 1));
         req.headers[key] = val;
     }
 
-    // Body
-    size_t body_len = 0;
+    // ===== CHUNKED TEM PRIORIDADE =====
+    if (req.headers.count("Transfer-Encoding") &&
+        req.headers["Transfer-Encoding"] == "chunked")
+    {
+        return parseChunkedBody(buffer, req);
+    }
+
+    // ===== CONTENT-LENGTH =====
     if (req.headers.count("Content-Length"))
     {
-        body_len = (size_t)atoi(req.headers["Content-Length"].c_str());
+        size_t body_len = std::atoi(req.headers["Content-Length"].c_str());
+
         if (body_len > max_body_size)
         {
             req.too_large_body = true;
-            return true; // parsed headers ok, body too large
+            return true;
         }
-    }
 
-    size_t total_len = header_end + 4 + body_len;
-    if (buffer.size() < total_len)
-        return (false); // not complete
-    if (body_len > 0)
-        req.body = data.substr(header_end + 4, body_len);
-    else
-        req.body.clear();
+        if (buffer.size() < req.header_end + body_len)
+            return false; // ainda incompleto
 
-    // 2. CHUNKED DETECTADO?
-    if (req.headers.count("Transfer-Encoding") &&
-        req.headers["Transfer-Encoding"] == "chunked")
-        return parseChunkedBody(buffer, req);
-
-    // 3. CASO NORMAL: CONTENT-LENGTH
-    if (req.headers.count("Content-Length"))
-    {
-        int len = atoi(req.headers["Content-Length"].c_str());
-        if (data.size() < req.header_end + len)
-            return false;
-
-        req.body = data.substr(req.header_end, len);
-        buffer.consume(req.header_end + len);
+        req.body = data.substr(req.header_end, body_len);
+        buffer.consume(req.header_end + body_len);
         return true;
     }
 
-    // 4. sem corpo
-    buffer.consume(total_len);
+    // ===== Sem body =====
+    buffer.consume(req.header_end);
     return true;
 }
 
-bool HttpParser::parseChunkedBody(Buffer &buffer, Request &req)
+bool    HttpParser::parseChunkedBody(Buffer &buffer, Request &req)
 {
+    size_t pos = req.header_end;
     std::string data = buffer.toString();
-    size_t pos = req.header_end; // posição logo após \r\n\r\n dos headers
-
-    std::string final_body;
+    std::string body;
 
     while (true)
     {
-        req.headers.clear();
-        req.method.clear();
-        req.uri.clear();
-        req.version.clear();
-        req.body.clear();
-        // 1. Ler tamanho em hexadecimal até CRLF
         size_t line_end = data.find("\r\n", pos);
         if (line_end == std::string::npos)
-            return false; // ainda não chegou chunk completo
+            return false;
 
-        std::string hexsize = data.substr(pos, line_end - pos);
-
-        // Converter hex -> tamanho do chunk
-        long chunk_size = strtol(hexsize.c_str(), NULL, 16);
+        std::string hex = data.substr(pos, line_end - pos);
+        long chunk_size = std::strtol(hex.c_str(), NULL, 16);
         if (chunk_size < 0)
             return false;
 
         pos = line_end + 2;
 
-        // 2. Chegou o chunk final?
+        // chunk final
         if (chunk_size == 0)
         {
-            // confirmar \r\n final
-            size_t end_mark = data.find("\r\n", pos);
-            if (end_mark == std::string::npos)
+            if (data.size() < pos + 2)
                 return false;
 
-            // Remover tudo até o fim do chunked
-            // Consome tudo: headers + todos os chunks até o fim
-            size_t consumed = end_mark + 2;
-            buffer.consume(consumed);
-
-            // Salva o corpo real
-            req.body = final_body;
+            buffer.consume(pos + 2);
+            req.body = body;
             return true;
         }
 
-        // 3. Verificar se chunk completo já chegou
         if (data.size() < pos + chunk_size + 2)
             return false;
 
-        // 4. Pegar os dados do chunk
-        final_body.append(data, pos, chunk_size);
-
-        // 5. Saltar chunk + CRLF
+        body.append(data, pos, chunk_size);
         pos += chunk_size + 2;
     }
 }
