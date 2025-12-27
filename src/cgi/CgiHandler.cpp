@@ -90,6 +90,8 @@ static void addHttpHeaders(const Request &req, std::vector<std::string> &env)
          it != req.headers.end(); ++it)
     {
         std::string up = normalizeHeaderKey(it->first);
+        if (up == "CONTENT_LENGTH" || up == "CONTENT_TYPE")
+            continue;
         env.push_back("HTTP_" + up + "=" + it->second);
     }
 }
@@ -306,6 +308,11 @@ CgiResult CgiHandler::execute(const Request &req,
         close(stdin_pipe[1]);
         close(stdout_pipe[0]);
 
+        Logger::log(Logger::INFO, "::::: Executing CGI: " + interpreter + " " + script_path);
+        Logger::log(Logger::INFO, "::::: ENV VARS:");
+        for (size_t i = 0; i < env_storage.size(); ++i)
+            Logger::log(Logger::INFO, "       " + env_storage[i]);
+
         execve(interpreter.c_str(), &argv_vec[0], &envp[0]);
         _exit(127);
     }
@@ -322,6 +329,9 @@ CgiResult CgiHandler::execute(const Request &req,
     {
         close(stdin_pipe[0]);
         close(stdout_pipe[1]);
+
+        Logger::log(Logger::INFO, "::::: Writing to CGI STDIN, " +
+                                      Utils::toString(req.body.size()) + " bytes");
 
         write(stdin_pipe[1], req.body.c_str(), req.body.size());
         close(stdin_pipe[1]);
@@ -393,6 +403,7 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
 {
     Response res;
 
+    Logger::log(Logger::INFO, "::::::CGI Raw Output:\n" + raw);
     // 1. separar headers e body
     // Tenta CRLF primeiro (padrão CGI)
     size_t pos = raw.find("\r\n\r\n");
@@ -465,12 +476,12 @@ Response CgiHandler::handleCgiRequest(const Request &req,
                                       const LocationConfig &loc,
                                       const CgiConfig &cgiConfig)
 {
-    Response    res;
+    Response res;
     //(void) cgiConfig;
 
     // monta caminho real do script
 
-//    std::string script_path = loc.root + req.uri.substr(loc.path.size());
+    //    std::string script_path = loc.root + req.uri.substr(loc.path.size());
     std::string script_path = loc.root + "/" + req.path.substr(loc.path.size());
 
     // passar de alguma forma a extencao

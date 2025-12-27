@@ -26,7 +26,6 @@ bool    matchLocation(const std::string &uri, const std::string &locPath)
     if (locPath[locPath.size() - 1] == '/')
         return (true);
 
-    // sem / → precisa bater exatamente ou terminar ali
     if (uri.size() == locPath.size())
         return (true);
 
@@ -283,12 +282,18 @@ Response    Router::route(const Request &req, const ServerConfig &config)
     std::string fsPath = makeRealPath(rq.path, loc, config);
     Logger::log(Logger::INFO, "FS PATH: " + fsPath);
 
-    /* 6 CGI */
+    /* 6 CGI
+        Estou a trabalhar aqui
+    */
     std::string ext = getExtension(rq.path);
+    Logger::log(Logger::INFO, "::::::::::::::::CGI EXT: " + ext);
     for (size_t i = 0; i < loc.cgi.size(); i++)
     {
-        if (loc.cgi[i].extension == ext)
+        Logger::log(Logger::INFO, "Comparando com: " + loc.cgi[i].extension);
+        if (loc.cgi[i].extension == ext){
+            Logger::log(Logger::INFO, "Rota CGI para extensão: " + ext);
             return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i]);
+        }
     }
 
     /* 7 Métodos HTTP */

@@ -203,7 +203,7 @@ void    MasterServer::handleRead(int clientFd)
     if (it == connections.end())
         return ;
 
-    size_t max_body = 1024 * 1024;
+    size_t max_body = 1024 * 1024;// 1 MB por defeito. Este valor deve estar no header como macro
     Connection *conn = it->second;
     std::map<int, ServerConfig *>::const_iterator vec = listenFdToServers.find(conn->getListenFd());
     if (vec != listenFdToServers.end() && vec->second)
@@ -216,7 +216,9 @@ void    MasterServer::handleRead(int clientFd)
         Response    res;
 
         res.status = 413;
-        res.body = "<h1>413 Payload Too Large</h1><a href=\"/\">Voltar</a>";
+        //res.body = "<h1>413 Payload Too Large</h1><a href=\"/\">Voltar</a>";
+        res.body = "<h1>413 Payload Too Large</h1>"
+           "<a href=\"/\" target=\"_top\">Voltar</a>";// target _top para evitar iframe, e carregar a página toda
         res.headers["Content-Length"] = Utils::toString(res.body.size());
         res.headers["Content-Type"] = "text/html";
         conn->getOutputBuffer().append(res.toString());

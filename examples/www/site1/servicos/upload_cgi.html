@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste de Upload CGI (PHP)</title>
+    <style>
+        #loading {
+            display: none;
+            color: blue;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h2>Upload de Arquivo via CGI (PHP)</h2>
+
+    <form id="uploadForm" action="/cgi-bin/php/upload.php"
+          method="POST"
+          enctype="multipart/form-data">
+
+        <label for="file">Selecionar arquivo:</label><br>
+        <input type="file" id="file" name="file" required><br><br>
+
+        <button type="submit" id="submitBtn">Enviar Arquivo</button>
+    </form>
+
+    <p id="loading">Enviando arquivo, por favor aguarde...</p>
+
+    <hr>
+    <p><strong>Nota:</strong> Este formulário envia o arquivo via
+        <code>multipart/form-data</code> para um script PHP executado por CGI.</p>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+
+        form.addEventListener('submit', function() {
+            submitBtn.disabled = true; // desabilita o botão
+            loading.style.display = 'block'; // mostra o loading
+        });
+    </script>
+</body>
+</html>

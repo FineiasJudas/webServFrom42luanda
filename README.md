@@ -87,3 +87,20 @@ Não precisamos do while no read:
 
 **Conclusão:**  
 Não é necessário diferenciar entre “erro temporário” ou “erro real” dentro do `read()`. O epoll/poll garante que você só será notificado quando houver algo a processar. 
+
+
+# CGI - COMUM GETAWAY INTERFACE
+## CGI - PHP
+INTERPERTADOR: /usr/bin/php-cgi
+### ARQUIVO GRANDE DEMIS
+PARECE QUE O ARQUIVO /etc/php/8.3/cgi/php.ini contem vars que limitão o tamanho do arquivo
+a carregar. Alterei para:
+upload_max_filesize = 10M      ; tamanho máximo de cada arquivo
+post_max_size = 20M            ; tamanho máximo do corpo da requisição
+
+bash `
+ ~ php-cgi -i | grep "Loaded Configuration File"
+<tr><td class="e">Loaded Configuration File </td><td class="v">/etc/php/8.3/cgi/php.ini </td></tr>
+➜  ~ vi /etc/php/8.3/cgi/php.ini
+➜  ~ sudo vi /etc/php/8.3/cgi/php.ini
+`
