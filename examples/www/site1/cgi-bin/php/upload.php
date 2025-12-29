@@ -26,8 +26,10 @@ if (isset($pathInfo['extension']) && $pathInfo['extension'] !== '') {
 }
 
 if (move_uploaded_file($_FILES['file']['tmp_name'], $dest)) {
-    echo "<p>Upload feito com sucesso!</p>";
-    echo "<p>Salvo em: $dest</p>";
+    $conteudo = file_get_contents("./sucessUpload.html");
+    echo $conteudo;
+    //echo "<p>Upload feito com sucesso!</p>";
+    //echo "<p>Salvo em: $dest</p>";
 } else {
     echo "<p>Falha ao mover o arquivo.</p>";
 }

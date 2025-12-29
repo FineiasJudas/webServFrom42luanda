@@ -8,7 +8,7 @@
 #include "./../utils/keywords.hpp"
 #include "../session/SessionManager.hpp"
 
-volatile sig_atomic_t   g_running = 1;
+volatile sig_atomic_t g_running = 1;
 
 MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
 {
@@ -50,14 +50,14 @@ int MasterServer::parsePortFromListenString(const std::string &s) const
     return std::atoi(portstr.c_str());
 }
 
-void    MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
+void MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
 {
-    int     fd;
-    int     port;
+    int fd;
+    int port;
 
     for (size_t i = 0; i < servers.size(); ++i)
     {
-        const ServerConfig  &sc = servers[i];
+        const ServerConfig &sc = servers[i];
 
         if (sc.listen.size() > 0)
         {
@@ -116,7 +116,7 @@ int MasterServer::createListenSocketForPort(int port)
         flags = 0;
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-    struct sockaddr_in  addr;
+    struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
@@ -156,10 +156,10 @@ ServerConfig *MasterServer::selectServerForRequest(const Request &req, int liste
     return (defaultServer);
 }
 
-void    MasterServer::handleAccept(int listenFd)
+void MasterServer::handleAccept(int listenFd)
 {
-    int     flags;
-    int     clientFd;
+    int flags;
+    int clientFd;
 
     clientFd = accept(listenFd, NULL, NULL);
     if (clientFd < 0)
@@ -197,57 +197,68 @@ seu arquivo de configuração.
 ===============  parece que já estamos a comprir com apenas o pontos acima ===============
 */
 
-void    MasterServer::handleRead(int clientFd)
+void MasterServer::handleRead(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
     if (it == connections.end())
-        return ;
+        return;
 
-    size_t max_body = 1024 * 1024;// 1 MB por defeito. Este valor deve estar no header como macro
+    size_t max_body = 1024 * 1024; // 1 MB por defeito. Este valor deve estar no header como macro
     Connection *conn = it->second;
     std::map<int, ServerConfig *>::const_iterator vec = listenFdToServers.find(conn->getListenFd());
     if (vec != listenFdToServers.end() && vec->second)
         max_body = vec->second->max_body_size;
 
-    //Ler UMA vez (epoll LT)
+    // Ler UMA vez (epoll LT)
     ssize_t n = conn->readFromFd();
     if (conn->getInputBuffer().size() > max_body)
     {
-        Response    res;
-
+        Response res;
         res.status = 413;
-        //res.body = "<h1>413 Payload Too Large</h1><a href=\"/\">Voltar</a>";
-        res.body = "<h1>413 Payload Too Large</h1>"
-           "<a href=\"/\" target=\"_top\">Voltar</a>";// target _top para evitar iframe, e carregar a página toda
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.body =
+            "<html><body>"
+            "<h1>413 Payload Too Large</h1>"
+            "<a href=\"/\" target=\"_top\">Voltar</a>"
+            "</body></html>";
+
         res.headers["Content-Type"] = "text/html";
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.headers["Connection"] = "close";
+
         conn->getOutputBuffer().append(res.toString());
+
+        // muda para escrita
         poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-        Logger::log(Logger::NEW, "Status " + Utils::toString(res.status) + 
-            " " + Response::reasonPhrase(res.status));
-        conn->getInputBuffer().clear();
-        return ;
+
+        // marca para fechar depois
+        conn->setCloseAfterSend(true);
+
+        Logger::log(Logger::NEW,
+                    "Status 413 Payload Too Large");
+
+        return;
     }
+
     if (n == 0)
     {
         closeConnection(clientFd);
-        return ;
+        return;
     }
     if (n < 0)
     {
         closeConnection(clientFd);
-        return ;
-    }//nada para ler agora idiota e nem precisas diferenciar erros
+        return;
+    } // nada para ler agora idiota e nem precisas diferenciar erros
 
-    //Processar requisições completas
+    // Processar requisições completas
     int processed = 0;
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
-        Request     req;
+        Request req;
 
         bool ok = HttpParser::parseRequest(conn->getInputBuffer(), req, max_body);
         if (!ok)
-           break ;
+            break;
         // determinar servidor real para este pedido
         ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
         conn->setServer(sc);
@@ -262,16 +273,16 @@ void    MasterServer::handleRead(int clientFd)
         else
             conn->setCloseAfterSend(false);
 
-        Logger::log(Logger::INFO, req.method + " " + req.uri + 
-            " " + req.version + " recebido na FD " + Utils::toString(clientFd));
+        Logger::log(Logger::INFO, req.method + " " + req.uri +
+                                      " " + req.version + " recebido na FD " + Utils::toString(clientFd));
 
         // Roteamento
         Response res = Router::route(req, *sc);
 
-        res.status >= 200 && res.status <= 300 ? Logger::log(Logger::DEBUG, "Status " + Utils::toString(res.status) + 
-        " " + Response::reasonPhrase(res.status)) : res.status >= 400 && res.status <= 500 ? 
-            Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status))
-                : Logger::log(Logger::WINT, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
+        res.status >= 200 && res.status <= 300   ? Logger::log(Logger::DEBUG, "Status " + Utils::toString(res.status) +
+                                                                                  " " + Response::reasonPhrase(res.status))
+        : res.status >= 400 && res.status <= 500 ? Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status))
+                                                 : Logger::log(Logger::WINT, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
 
         conn->getOutputBuffer().append(res.toString());
         conn->getInputBuffer().clear();
@@ -282,7 +293,7 @@ void    MasterServer::handleRead(int clientFd)
         poller.modifyFd(clientFd, EPOLLOUT);
 }
 
-void    MasterServer::handleWrite(int clientFd)
+void MasterServer::handleWrite(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
     if (it == connections.end())
@@ -291,7 +302,7 @@ void    MasterServer::handleWrite(int clientFd)
     Connection *conn = it->second;
     Buffer &out = conn->getOutputBuffer();
 
-    if (out.empty())// nada para escrever
+    if (out.empty()) // nada para escrever
     {
         conn->waiting_for_write = false;
         poller.modifyFd(clientFd, EPOLLIN);
@@ -306,29 +317,41 @@ void    MasterServer::handleWrite(int clientFd)
 
     ssize_t sent = conn->writeToFd(out.data(), out.size());
 
-    if (sent > 0){out.consume(sent);}
-    else if (sent == 0){return;}
-    else{return;}
+    if (sent > 0)
+    {
+        out.consume(sent);
+    }
+    else if (sent == 0)
+    {
+        return;
+    }
+    else
+    {
+        return;
+    }
 
     if (conn->shouldCloseAfterSend() && out.empty())
-    {return closeConnection(clientFd);}
+    {
+        return closeConnection(clientFd);
+    }
 
-    if (out.empty())//terminou de escrever
+    if (out.empty()) // terminou de escrever
     {
         conn->waiting_for_write = false;
         poller.modifyFd(clientFd, EPOLLIN);
     }
-    else {poller.modifyFd(clientFd, EPOLLOUT);}// continuar a escutar escrita
+    else
+    {
+        poller.modifyFd(clientFd, EPOLLOUT);
+    } // continuar a escutar escrita
 }
 
-
-
-void    MasterServer::closeConnection(int clientFd)
+void MasterServer::closeConnection(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
 
     if (it == connections.end())
-        return ;
+        return;
 
     poller.removeFd(clientFd);
     ::close(clientFd);
@@ -337,10 +360,10 @@ void    MasterServer::closeConnection(int clientFd)
     Logger::log(Logger::WARN, "Conexão fechada FD " + Utils::toString(clientFd));
 }
 
-void    MasterServer::checkTimeouts()
+void MasterServer::checkTimeouts()
 {
-    time_t  idle;
-    time_t  now = time(NULL);
+    time_t idle;
+    time_t now = time(NULL);
 
     std::vector<int> toClose;
 
@@ -372,9 +395,9 @@ void    MasterServer::checkTimeouts()
         closeConnection(toClose[i]);
 }
 
-void    MasterServer::run()
+void MasterServer::run()
 {
-    int     fd;
+    int fd;
 
     Logger::log(Logger::INFO, "MasterServer iniciado...");
     while (g_running)
