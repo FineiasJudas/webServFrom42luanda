@@ -21,6 +21,7 @@ class Connection
         time_t  last_activity_time;
         bool    waiting_for_write;
         time_t  write_start_time;
+        bool    is_rejeting;
 
     public:
         Connection(int fd);

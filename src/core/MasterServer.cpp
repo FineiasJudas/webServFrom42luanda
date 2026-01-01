@@ -308,8 +308,16 @@ void MasterServer::handleRead(int clientFd)
         max_body = vec->second->max_body_size;
 
     // Ler uma vez (epoll LT)
+    if (conn->is_rejeting)
+    {
+        Logger::log(Logger::WARN,
+                "Conexao do FD" + Utils::toString(clientFd) + " rejeitada!");
+    }
     ssize_t n = conn->readFromFd();
-
+    Logger::log(Logger::WINT,
+                "Lidos " + Utils::toString(n) + " bytes da FD " +
+                Utils::toString(clientFd) + ", buffer de entrada tem " +
+                Utils::toString(conn->getInputBuffer().size()) + " bytes");
     // Primeiro: tratar retorno do read
     if (n == 0) {
         closeConnection(clientFd);
@@ -339,13 +347,12 @@ void MasterServer::handleRead(int clientFd)
 
         // Só escrita a partir daqui (desativa leitura)
         poller.modifyFd(clientFd, EPOLLOUT);
-
         
         // Marcar fechamento limpo após envio
-        conn->setCloseAfterSend(true);
-
         Logger::log(Logger::NEW, "Status 413 Payload Too Large");
-        return;
+        conn->is_rejeting = true;
+        //conn->setCloseAfterSend(true);
+        return ;
     }
 
     int processed = 0;

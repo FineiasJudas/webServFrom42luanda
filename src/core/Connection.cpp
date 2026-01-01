@@ -12,7 +12,8 @@ Connection::Connection(int fd)
       closeAfterSend(false),
       last_activity_time(time(NULL)),
       waiting_for_write(false),
-      write_start_time(0)
+      write_start_time(0),
+      is_rejeting(false)
 {
 }
 
