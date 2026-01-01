@@ -38,6 +38,7 @@ class Connection
 
         void    setCloseAfterSend(bool v);
         bool    shouldCloseAfterSend() const;
+        
 
         ssize_t     readFromFd();
         ssize_t     writeToFd(const char *data, size_t size);

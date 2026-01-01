@@ -48,11 +48,20 @@ echo <<<HTML
 <script>
     function deleteFile(fileName) {
         if (!confirm('Tem certeza que deseja excluir "' + fileName + '"?')) return;
-        const url = '/cgi-bin/php/delete_file.php?file=' + encodeURIComponent(fileName);
-        fetch(url)
-            .then(resp => resp.text())
-            .then(() => location.reload())
-            .catch(err => alert('Erro ao excluir: ' + err));
+
+        fetch('/cgi-bin/php/delete_file.php', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'file=' + encodeURIComponent(fileName)
+        })
+        .then(resp => {
+            if (!resp.ok) throw new Error('Falha na exclusão');
+            return resp.text();
+        })
+        .then(() => location.reload())
+        .catch(err => alert('Erro ao excluir: ' + err.message));
     }
 </script>
 

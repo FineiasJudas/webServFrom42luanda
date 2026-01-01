@@ -8,7 +8,7 @@
 #include "../cgi/CgiHandler.hpp"
 #include "../session/SessionManager.hpp"
 
-static std::string  getExtension(const std::string &path)
+static std::string getExtension(const std::string &path)
 {
     size_t pos = path.rfind('.');
 
@@ -17,7 +17,7 @@ static std::string  getExtension(const std::string &path)
     return path.substr(pos);
 }
 
-bool    matchLocation(const std::string &uri, const std::string &locPath)
+bool matchLocation(const std::string &uri, const std::string &locPath)
 {
     if (uri.find(locPath) != 0)
         return (false);
@@ -64,8 +64,7 @@ const LocationConfig &findBestLocation(const std::string &uri,
     return (*best);
 }
 
-
-void    parseUri(Request &req)
+void parseUri(Request &req)
 {
     size_t pos = req.uri.find('?');
 
@@ -78,12 +77,12 @@ void    parseUri(Request &req)
     req.path = req.uri.substr(0, pos);
 
     std::string qs = req.uri.substr(pos + 1);
-    std::stringstream   ss(qs);
+    std::stringstream ss(qs);
     std::string pair;
 
     while (std::getline(ss, pair, '&'))
     {
-        size_t  eq = pair.find('=');
+        size_t eq = pair.find('=');
         if (eq == std::string::npos)
             continue;
 
@@ -95,11 +94,11 @@ void    parseUri(Request &req)
 }
 
 //   LISTAR ARQUIVOS EM /uploads-list
-Response    handleUploadsList(const Request &req, const ServerConfig &config)
+Response handleUploadsList(const Request &req, const ServerConfig &config)
 {
     (void)req;
 
-    Response    res;
+    Response res;
     size_t i = 0;
     for (; i < config.locations.size(); i++)
     {
@@ -113,7 +112,7 @@ Response    handleUploadsList(const Request &req, const ServerConfig &config)
                 res.headers["Content-Length"] = Utils::toString(res.body.size());
                 return res;
             }
-            break ;
+            break;
         }
     }
 
@@ -140,7 +139,8 @@ Response    handleUploadsList(const Request &req, const ServerConfig &config)
         if (entry->d_name[0] == '.')
             continue;
 
-        if (!first) json << ",";
+        if (!first)
+            json << ",";
         first = false;
 
         json << "\"" << entry->d_name << "\"";
@@ -157,7 +157,7 @@ Response    handleUploadsList(const Request &req, const ServerConfig &config)
 }
 
 //   DELETE EM /delete-file?name=
-Response    handleDeleteFile(const Request &req, const ServerConfig &config)
+Response handleDeleteFile(const Request &req, const ServerConfig &config)
 {
     Response r;
 
@@ -193,7 +193,7 @@ Response    handleDeleteFile(const Request &req, const ServerConfig &config)
                 r.headers["Content-Length"] = Utils::toString(r.body.size());
                 return r;
             }
-            break ;
+            break;
         }
     }
 
@@ -238,26 +238,29 @@ static std::string makeRealPath(const std::string &uri,
     return root + suffix;
 }
 
-
-Response    Router::route(const Request &req, const ServerConfig &config)
+Response Router::route(const Request &req, const ServerConfig &config)
 {
     Response r;
     Request rq = req;
 
     /* 1 Rotas internas */
-    if (handleCsrf(rq, r)) return r;
-    if (handleLogin(rq, r)) return r;
-    if (handleLogout(rq, r)) return r;
-    if (handleSession(rq, r)) return r;
+    if (handleCsrf(rq, r))
+        return r;
+    if (handleLogin(rq, r))
+        return r;
+    if (handleLogout(rq, r))
+        return r;
+    if (handleSession(rq, r))
+        return r;
 
-    if (rq.method == "GET" && rq.uri == "/uploads-list")
+    /*if (rq.method == "GET" && rq.uri == "/uploads-list")
         return handleUploadsList(rq, config);
 
     if (rq.method == "DELETE" && rq.uri.rfind("/delete-file", 0) == 0)
     {
         Request tmp = rq; parseUri(tmp);
         return handleDeleteFile(tmp, config);
-    }
+    }*/
 
     /* 2 Encontrar location */
     const LocationConfig &loc = findBestLocation(rq.uri, config);
@@ -284,7 +287,8 @@ Response    Router::route(const Request &req, const ServerConfig &config)
 
     /* 6 CGI
         Estou a trabalhar aqui
-    */
+
+
     std::string ext = getExtension(rq.path);
     Logger::log(Logger::INFO, "::::::::::::::::CGI EXT: " + ext);
     for (size_t i = 0; i < loc.cgi.size(); i++)
@@ -295,31 +299,62 @@ Response    Router::route(const Request &req, const ServerConfig &config)
             return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i]);
         }
     }
+*/
 
     /* 7 Métodos HTTP */
-    if (rq.method == "GET")
-        return methodGet(config, loc, fsPath, rq.uri);
 
+    std::string busca = req.method;
+
+    bool metodo_req_existe = std::find(loc.methods.begin(), loc.methods.end(), busca) != loc.methods.end();
+
+    if (metodo_req_existe) // não usar GET direitamente aqui, verificar a lista de métodos permitidos na location
+    {
+
+        std::string ext = getExtension(rq.path);
+        Logger::log(Logger::INFO, "::::::::::::::::METODO: " + req.method);
+        for (size_t i = 0; i < loc.methods.size(); i++)
+        {
+            Logger::log(Logger::INFO, "::::::::::::::::CGI EXT: " + loc.methods[i]);
+        }
+        
+
+
+        Logger::log(Logger::INFO, "::::::::::::::::CGI EXT: " + ext);
+        for (size_t i = 0; i < loc.cgi.size(); i++)
+        {
+            if (loc.cgi[i].extension == ext)
+            {
+                Logger::log(Logger::INFO, "Rota CGI para extensão: " + ext);
+                return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i]);
+            }
+        }
+        return methodGet(config, loc, fsPath, rq.uri);
+    }
+
+    /*
     if (rq.method == "POST")
     {
         if (!loc.upload_dir.empty())
+        {
+
             return methodPostMultipart(rq, loc.upload_dir, loc, config);
+        }
         return methodPost(rq, config, fsPath, loc);
     }
 
     if (rq.method == "DELETE")
         return methodDelete(fsPath, config, loc);
+    */
 
     return notAloweMethodResponse(config);
 }
-
 
 /*Response    Router::route(const Request &req, const ServerConfig &config)
 {
     // 0) ENDPOINTS ESPECIAIS SEM PASSAR POR LOCATION
     // (Eles sempre devem ser processados *antes* do findBestLocation)
 
-    
+
     Response r;
     Request rq = req;
 

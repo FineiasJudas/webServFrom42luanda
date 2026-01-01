@@ -196,7 +196,7 @@ seu arquivo de configuração.
 
 ===============  parece que já estamos a comprir com apenas o pontos acima ===============
 */
-
+/*
 void MasterServer::handleRead(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
@@ -239,16 +239,11 @@ void MasterServer::handleRead(int clientFd)
         return;
     }
 
-    if (n == 0)
-    {
+    if (n <= 0)
+    {closeAfterSend
         closeConnection(clientFd);
         return;
-    }
-    if (n < 0)
-    {
-        closeConnection(clientFd);
-        return;
-    } // nada para ler agora idiota e nem precisas diferenciar erros
+    }// nada para ler agora idiota e nem precisas diferenciar erros
 
     // Processar requisições completas
     int processed = 0;
@@ -292,6 +287,114 @@ void MasterServer::handleRead(int clientFd)
     if (processed > 0)
         poller.modifyFd(clientFd, EPOLLOUT);
 }
+*/
+
+void MasterServer::handleRead(int clientFd)
+{
+    std::map<int, Connection *>::iterator it = connections.find(clientFd);
+    if (it == connections.end())
+        return;
+
+    Connection *conn = it->second;
+
+    // Se já decidimos fechar, não lemos mais nada
+    if (conn->shouldCloseAfterSend())
+        return;
+
+    size_t max_body = 1024 * 1024; // 1 MB default
+    std::map<int, ServerConfig *>::const_iterator vec =
+        listenFdToServers.find(conn->getListenFd());
+    if (vec != listenFdToServers.end() && vec->second)
+        max_body = vec->second->max_body_size;
+
+    // Ler uma vez (epoll LT)
+    ssize_t n = conn->readFromFd();
+
+    // Primeiro: tratar retorno do read
+    if (n == 0) {
+        closeConnection(clientFd);
+        return;
+    }
+    if (n < 0) {
+        // EAGAIN / EWOULDBLOCK em LT não é erro fatal
+        return;
+    }
+
+    // Detectar payload demasiado grande
+    if (conn->getInputBuffer().size() > max_body)
+    {
+        Response res;
+        res.status = 413;
+        res.body =
+            "<html><body>"
+            "<h1>413 Payload Too Large</h1>"
+            "<a href=\"/\" target=\"_top\">Voltar</a>"
+            "</body></html>";
+
+        res.headers["Content-Type"] = "text/html";
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.headers["Connection"] = "close";
+
+        conn->getOutputBuffer().append(res.toString());
+
+        // Só escrita a partir daqui (desativa leitura)
+        poller.modifyFd(clientFd, EPOLLOUT);
+
+        
+        // Marcar fechamento limpo após envio
+        conn->setCloseAfterSend(true);
+
+        Logger::log(Logger::NEW, "Status 413 Payload Too Large");
+        return;
+    }
+
+    int processed = 0;
+
+    // Processar pedidos completos (pode haver mais que um)
+    while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
+    {
+        Request req;
+        if (!HttpParser::parseRequest(conn->getInputBuffer(), req, max_body))
+            break;
+
+        ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
+        conn->setServer(sc);
+
+        std::string connHdr;
+        if (req.headers.count("Connection"))
+            connHdr = req.headers.at("Connection");
+
+        if (connHdr == "close")
+            conn->setCloseAfterSend(true);
+        else if (req.version == "HTTP/1.0" && connHdr != "keep-alive")
+            conn->setCloseAfterSend(true);
+        else
+            conn->setCloseAfterSend(false);
+
+        Logger::log(Logger::INFO,
+                    req.method + " " + req.uri + " " + req.version +
+                    " recebido na FD " + Utils::toString(clientFd));
+
+        Response res = Router::route(req, *sc);
+
+        (res.status >= 200 && res.status <= 300)
+            ? Logger::log(Logger::DEBUG,
+                          "Status " + Utils::toString(res.status) + " " +
+                          Response::reasonPhrase(res.status))
+            : Logger::log(Logger::ERROR,
+                          "Status " + Utils::toString(res.status) + " " +
+                          Response::reasonPhrase(res.status));
+
+        conn->getOutputBuffer().append(res.toString());
+
+        processed++;
+    }
+
+    // Se geramos resposta(s), mudar para escrita
+    if (processed > 0)
+        poller.modifyFd(clientFd, EPOLLOUT);
+}
+
 
 void MasterServer::handleWrite(int clientFd)
 {
