@@ -10,13 +10,16 @@ static void sigint_handler(int signum)
     }
 }
 
-void    setupSignalHandlers()
+void setupSignalHandlers()
 {
-    struct sigaction    sa;
+    struct sigaction sa;
     sa.sa_handler = sigint_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
 
     sigaction(SIGINT, &sa, NULL);
+
     signal(SIGPIPE, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
 }
+
