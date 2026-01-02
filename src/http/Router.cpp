@@ -253,15 +253,6 @@ Response Router::route(const Request &req, const ServerConfig &config)
     if (handleSession(rq, r))
         return r;
 
-    /*if (rq.method == "GET" && rq.uri == "/uploads-list")
-        return handleUploadsList(rq, config);
-
-    if (rq.method == "DELETE" && rq.uri.rfind("/delete-file", 0) == 0)
-    {
-        Request tmp = rq; parseUri(tmp);
-        return handleDeleteFile(tmp, config);
-    }*/
-
     /* 2 Encontrar location */
     const LocationConfig &loc = findBestLocation(rq.uri, config);
     Logger::log(Logger::INFO, "Location escolhida: " + loc.path);
@@ -285,168 +276,39 @@ Response Router::route(const Request &req, const ServerConfig &config)
     std::string fsPath = makeRealPath(rq.path, loc, config);
     Logger::log(Logger::INFO, "FS PATH: " + fsPath);
 
-    /* 6 CGI
-        Estou a trabalhar aqui
-
-
-    std::string ext = getExtension(rq.path);
-    Logger::log(Logger::INFO, "::::::::::::::::CGI EXT: " + ext);
-    for (size_t i = 0; i < loc.cgi.size(); i++)
-    {
-        Logger::log(Logger::INFO, "Comparando com: " + loc.cgi[i].extension);
-        if (loc.cgi[i].extension == ext){
-            Logger::log(Logger::INFO, "Rota CGI para extensão: " + ext);
-            return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i]);
-        }
-    }
-*/
-
     /* 7 Métodos HTTP */
 
     std::string busca = req.method;
 
     bool metodo_req_existe = std::find(loc.methods.begin(), loc.methods.end(), busca) != loc.methods.end();
 
-    if (metodo_req_existe) // não usar GET direitamente aqui, verificar a lista de métodos permitidos na location
+    if (!metodo_req_existe)
+        return notAloweMethodResponse(config);
+
+    // daqui pra frente o método é permitido
+
+    std::string ext = getExtension(rq.path);
+
+    // 1️⃣ Se não for GET → só CGI
+    if (req.method != "GET")
     {
-
-        std::string ext = getExtension(rq.path);
-        Logger::log(Logger::INFO, "::::::::::::::::METODO: " + req.method);
-        for (size_t i = 0; i < loc.methods.size(); i++)
-        {
-            Logger::log(Logger::INFO, "::::::::::::::::CGI EXT: " + loc.methods[i]);
-        }
-        
-
-
-        Logger::log(Logger::INFO, "::::::::::::::::CGI EXT: " + ext);
         for (size_t i = 0; i < loc.cgi.size(); i++)
         {
             if (loc.cgi[i].extension == ext)
-            {
-                Logger::log(Logger::INFO, "Rota CGI para extensão: " + ext);
                 return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i]);
-            }
         }
-        return methodGet(config, loc, fsPath, rq.uri);
+
+        return notAloweMethodResponse(config);
     }
 
-    /*
-    if (rq.method == "POST")
-    {
-        if (!loc.upload_dir.empty())
-        {
-
-            return methodPostMultipart(rq, loc.upload_dir, loc, config);
-        }
-        return methodPost(rq, config, fsPath, loc);
-    }
-
-    if (rq.method == "DELETE")
-        return methodDelete(fsPath, config, loc);
-    */
-
-    return notAloweMethodResponse(config);
-}
-
-/*Response    Router::route(const Request &req, const ServerConfig &config)
-{
-    // 0) ENDPOINTS ESPECIAIS SEM PASSAR POR LOCATION
-    // (Eles sempre devem ser processados *antes* do findBestLocation)
-
-
-    Response r;
-    Request rq = req;
-
-    // Rotas especiais (antes de location)
-    if (handleCsrf(req, r)) return r;
-    if (handleLogin(req, r)) return r;
-    if (handleLogout(req, r)) return r;
-    if (handleSession(req, r)) return r;
-
-    if (rq.method == "GET" && rq.uri == "/uploads-list")
-        return handleUploadsList(rq, config);
-
-    if (rq.method == "DELETE" && rq.uri.rfind("/delete-file", 0) == 0)
-    {
-        Request tmp = rq;
-        parseUri(tmp);
-        return handleDeleteFile(tmp, config);
-    }
-
-    // 1) Encontrar location correto
-    const LocationConfig &loc = findBestLocation(rq.uri, config);
-
-    std::cout << std::endl;
-    Logger::log(Logger::INFO, "Rota encontrada: " + loc.path);
-    std::cout << std::endl;
-
-    // 1.5) Redirecionamento
-    if (loc.redirect_code != 0)
-    {
-        Response    r;
-
-        r.status = loc.redirect_code;
-        r.headers["Location"] = loc.redirect_url;
-        r.body = "<h1>" + Utils::toString(loc.redirect_code)
-                + " Redirect</h1><p>→ " + loc.redirect_url + "</p>";
-        r.headers["Content-Length"] = Utils::toString(r.body.size());
-        r.headers["Content-Type"] = "text/html";
-        return (r);
-    }
-
-    // 2) Proteger contra directory traversal
-    if (rq.uri.find("..") != std::string::npos)
-        return forbiddenPageResponse(config);
-
-    // 3) CGI (se extensão combinou)
-    std::string ext = getExtension(req.path);
-    Logger::log(Logger::INFO, "URI:::: " + rq.uri);
-    Logger::log(Logger::INFO, "CGI: " + ext);
-    Logger::log(Logger::INFO, "PATH: " + req.path);
-
-    for (std::map<std::string, std::string>::const_iterator it = req.query.begin();
-        it != req.query.end(); ++it)
-        std::cout << "Query Param: " << it->first << " = " << it->second << std::endl;
+    // 2️⃣ GET
     for (size_t i = 0; i < loc.cgi.size(); i++)
     {
-        if (ext == loc.cgi[i].extension)
-        {
-            Logger::log(Logger::INFO, "CGI para extensão: " + ext);
-            return CgiHandler::handleCgiRequest(req, config, loc, loc.cgi[i]);
-        }
+        if (loc.cgi[i].extension == ext)
+            return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i]);
     }
 
-    // 4) Resolver caminho real de arquivo
-    std::string root = loc.root.empty() ? config.root : loc.root;
-    std::string path = root;
+    // 3️⃣ GET estático
+    return methodGet(config, loc, fsPath, rq.uri);
 
-    // Corrigir duplo slash
-    if (root[root.size() - 1] == '/' && rq.path[0] == '/')
-        path += rq.path.substr(1);
-    else if (root[root.size() - 1] != '/' && rq.path[0] != '/')
-        path += "/" + rq.path;
-    else
-        path += rq.path;
-
-    // 5) Métodos HTTP
-
-    // GET
-    if (rq.method == "GET")
-        return methodGet(config, loc, path, rq.uri);
-
-    // POST
-    if (rq.method == "POST")
-    {
-        if (!loc.upload_dir.empty())
-            return methodPostMultipart(rq, loc.upload_dir);
-        return methodPost(rq, config, path);
-    }
-
-    // DELETE
-    if (rq.method == "DELETE")
-        return methodDelete(path, config);
-
-    // Método não permitido
-    return notAloweMethodResponse(config);
-}*/
+}

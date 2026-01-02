@@ -400,7 +400,9 @@
           margin-bottom: 15px;
           padding: 10px;
           border: 1px solid #ccc;
-          border-radius: 6px;">
+          border-radius: 6px;" required
+       accept="*/*"
+       onchange="validateFileSize(this)">
       
       <button type="submit" style="
           width: 100%;
@@ -421,6 +423,19 @@
   const modal = document.getElementById("uploadModal");
   const openBtn = document.getElementById("uploadButton");
   const closeBtn = document.getElementById("closeModalBtn");
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+function validateFileSize(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+        alert("Arquivo muito grande! Máximo permitido: 5MB.");
+        input.value = "";
+    }
+}
+
 
   openBtn.onclick = () => {
     modal.style.display = "flex";
@@ -459,17 +474,17 @@
     });
 });
 
-async function  loadFiles()
-{
+async function loadFiles() {
     const grid = document.getElementById("filesGrid");
     grid.innerHTML = "<p>Carregando arquivos...</p>";
 
-    try
-    {
-        const res = await fetch("/uploads-list");
+    try {
+      const res = await fetch("/cgi-bin/php/list_uploads.php", {
+          headers: { "Accept": "application/json" }
+        });
         const data = await res.json();
 
-        grid.innerHTML = ""; // limpar
+        grid.innerHTML = "";
 
         if (!data.files.length) {
             grid.innerHTML = "<p>Nenhum arquivo enviado ainda.</p>";
@@ -478,34 +493,27 @@ async function  loadFiles()
 
         data.files.forEach(name => {
             const ext = name.split('.').pop().toLowerCase();
-            const src = "/uploads/" + name;
+            const src = "/uploads/" + encodeURIComponent(name);
             const item = document.createElement("div");
             item.className = "file-item";
 
-            // escolher visualização
             let preview = "";
-
-            if (["png", "jpg", "jpeg", "gif", "webp"].includes(ext)) {
-                preview = `<img src="${src}" alt="${name}">`;
-            }
-            else if (["mp4", "webm"].includes(ext)) {
+            if (["png","jpg","jpeg","gif","webp"].includes(ext))
+                preview = `<img src="${src}">`;
+            else if (["mp4","webm"].includes(ext))
                 preview = `<video src="${src}" controls></video>`;
-            }
-            else {
+            else
                 preview = `<p>${name}</p>`;
-            }
 
             item.innerHTML = `
                 ${preview}
                 <button class="delete-btn" onclick="deleteFile('${name}')">Excluir</button>
             `;
-
             grid.appendChild(item);
         });
 
-    } catch (err) {
+    } catch {
         grid.innerHTML = "<p>Erro ao carregar arquivos.</p>";
-        console.error(err);
     }
 }
 
@@ -515,20 +523,18 @@ async function deleteFile(filename) {
         return;
 
     try {
-        const res = await fetch(`/delete-file?name=${filename}`, { method: "DELETE" });
+        const res = await fetch(
+            `/cgi-bin/php/delete_file.php?file=${encodeURIComponent(filename)}`
+        );
 
-        if (res.status === 200)
-        {
+        if (res.ok) {
             alert("Arquivo deletado!");
-            loadFiles(); // recarregar grid
+            loadFiles();
+        } else {
+            alert("Erro ao deletar.");
         }
-         else
-            alert("Erro ao deletar o arquivo!");
-    }
-    catch (err)
-    {
+    } catch {
         alert("Erro ao deletar.");
-        console.error(err);
     }
 }
 

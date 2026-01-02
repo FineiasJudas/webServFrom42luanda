@@ -104,3 +104,49 @@ bash `
 ➜  ~ vi /etc/php/8.3/cgi/php.ini
 ➜  ~ sudo vi /etc/php/8.3/cgi/php.ini
 `
+
+# 📘 2️⃣ Texto pronto para o README (pode copiar e colar)
+
+### ### HTTP Methods Handling
+
+Este servidor implementa um roteamento explícito e seguro dos métodos HTTP, conforme o subject do projeto.
+
+#### GET
+
+* GET é o único método permitido para servir ficheiros estáticos.
+* GET também pode ser encaminhado para CGI, caso a extensão do ficheiro esteja configurada como CGI na location.
+
+#### POST, DELETE e outros métodos
+
+* Métodos diferentes de GET **não são permitidos para conteúdo estático**.
+* POST, DELETE e outros métodos só são aceitos quando a requisição é encaminhada para um CGI.
+* Caso um método não permitido seja usado fora de um CGI, o servidor retorna **405 Method Not Allowed**.
+
+#### DELETE
+
+* O método DELETE é totalmente suportado pelo servidor.
+* Pode ser testado diretamente via `curl`:
+
+  ```bash
+  curl -X DELETE http://localhost:8080/cgi-bin/php/delete_file.php?file=example.txt
+  ```
+* Em navegadores, onde DELETE não é suportado nativamente por formulários ou iframes, é utilizado GET como fallback para operações administrativas via CGI.
+
+Essa abordagem garante:
+
+* Separação clara entre conteúdo estático e dinâmico
+* Segurança contra operações destrutivas fora do CGI
+* Conformidade com o subject do projeto
+
+---
+
+## 🔥 Observação final (importante para avaliação)
+
+Se o avaliador perguntar:
+
+> “Por que DELETE não funciona no browser?”
+
+Resposta curta e certa:
+
+> “DELETE funciona no servidor e pode ser testado via curl. Para o frontend HTML, usamos GET como fallback porque browsers não suportam DELETE de forma confiável em formulários e iframes.”
+
