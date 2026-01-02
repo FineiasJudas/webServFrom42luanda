@@ -2,7 +2,7 @@
 #define UTILS_HPP
 
 #include "../../includes/Headers.hpp"
-
+#include "../http/Response.hpp"
 class Utils
 {
 public:
@@ -55,6 +55,30 @@ public:
 
         return result;
     }
+
+    static Response makeErrorResponse(int status,
+                                    const std::string &body,
+                                    const std::string &contentType = "text/html")
+    {
+        Response res;
+        res.status = status;
+        res.body = body;
+        res.headers["Content-Type"] = contentType;
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        return res;
+    }
+
+    static std::string getInterpreterCGI(std::string path, std::string extension)
+    {
+        if (path.empty())
+        {
+            if (extension == ".php") {return ("/usr/bin/php-cgi");}
+            else if (extension == ".py") {return ("/usr/bin/python3");}
+            else {return "";}
+        }
+        else {return (path);}
+    }
+
 };
 
 #endif

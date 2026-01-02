@@ -309,6 +309,9 @@ void MasterServer::handleRead(int clientFd)
 
     // Ler uma vez (epoll LT)
     ssize_t n = conn->readFromFd();
+    Logger::log(Logger::WINT, Utils::toString(n) +
+     " bytes lidos do FD " + Utils::toString(clientFd)
+        + ", buffer tem " + Utils::toString(conn->getInputBuffer().size()) + " bytes");
 
     // Primeiro: tratar retorno do read
     if (n == 0) {

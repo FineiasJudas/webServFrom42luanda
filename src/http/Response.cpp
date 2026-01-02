@@ -142,7 +142,7 @@ static Response notFoundResponse(const ServerConfig &config)
             res.body = content;
             res.status = 404;
             res.headers["Content-Type"] = "text/html";
-            res.headers["Content-Length"] = Utils::toString(res.body.size());
+            res.headers["Content-Length"] = Response::toString(res.body.size());
             return (res);
         }
     }
@@ -164,7 +164,7 @@ Response    forbiddenPageResponse(const ServerConfig &config)
             res.body = content;
             res.status = 403;
             res.headers["Content-Type"] = "text/html";
-            res.headers["Content-Length"] = Utils::toString(res.body.size());
+            res.headers["Content-Length"] = Response::toString(res.body.size());
             return (res);
         }
     }
@@ -182,7 +182,7 @@ static Response    generateDirectoryListing(const std::string &uri,
         res.status = 500;
         res.body = "<h1>500 Internal Server Error</h1><a href=\"/\">Voltar</a>";
         res.headers["Content-Type"] = "text/html";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.headers["Content-Length"] =  Response::toString(res.body.size());
         return res;
     }
 
@@ -208,7 +208,7 @@ static Response    generateDirectoryListing(const std::string &uri,
     res.status = 200;
     res.body = ss.str();
     res.headers["Content-Type"] = "text/html";
-    res.headers["Content-Length"] = Utils::toString(res.body.size());
+    res.headers["Content-Length"] =  Response::toString(res.body.size());
     return res;
 }
 
@@ -217,8 +217,6 @@ Response    methodGet(const ServerConfig &config,
                            const std::string &str,
                            const std::string &uri)
 {
-    if (!isAllowedMethod(loc, "GET"))
-        return notAloweMethodResponse(config);
     size_t  p;
     Response    res;
     std::string path = const_cast<std::string &>(str);
@@ -235,7 +233,7 @@ Response    methodGet(const ServerConfig &config,
         res.body = readFile(path);
         res.status = 200;
         res.headers["Content-Type"] = getMimeType(path);
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.headers["Content-Length"] = Response::toString(res.body.size());
         return res;
     }
 
@@ -262,7 +260,7 @@ Response    methodGet(const ServerConfig &config,
             res.body = readFile(index);
             res.status = 200;
             res.headers["Content-Type"] = "text/html";
-            res.headers["Content-Length"] = Utils::toString(res.body.size());
+            res.headers["Content-Length"] = Response::toString(res.body.size());
             return res;
         }
 
@@ -294,7 +292,7 @@ Response methodPost(const Request &req,
         res.status = 400;
         res.body = "<h1>400 Bad Request (path is a directory)</h1><a href=\"/\">Voltar</a>";
         res.headers["Content-Type"] = "text/html";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.headers["Content-Length"] = Response::toString(res.body.size());
         return res;
     }
 
@@ -306,7 +304,7 @@ Response methodPost(const Request &req,
         res.status = 404;
         res.body = "<h1>404 Not Found (directory does not exist)</h1><a href=\"/\">Voltar</a>";
         res.headers["Content-Type"] = "text/html";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.headers["Content-Length"] = Response::toString(res.body.size());
         return res;
     }
 
@@ -319,7 +317,7 @@ Response methodPost(const Request &req,
         res.status = 500;
         res.body = "<h1>500 Internal Server Error (cannot write file)</h1><a href=\"/\">Voltar</a>";
         res.headers["Content-Type"] = "text/html";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.headers["Content-Length"] = Response::toString(res.body.size());
         return res;
     }
 
@@ -372,14 +370,14 @@ Response    notAloweMethodResponse(const ServerConfig &config)
             res.body = content;
             res.status = 405;
             res.headers["Content-Type"] = "text/html";
-            res.headers["Content-Length"] = Utils::toString(res.body.size());
+            res.headers["Content-Length"] = Response::toString(res.body.size());
             return (res);
         }
     }
     res.status = 405;
     res.body = "<html><body><h1>405 Method Not Allowed</h1></body></html><a href=\"/\">Voltar</a>";
     res.headers["Content-Type"] = "text/html";
-    res.headers["Content-Length"] = Utils::toString(res.body.size());
+    res.headers["Content-Length"] = Response::toString(res.body.size());
     return (res);
 }
 
@@ -397,7 +395,7 @@ Response    methodPostMultipart(const Request &req, const std::string &uploadDir
     {
         res.status = 400;
         res.body = "<h1>400 Bad Request (no boundary)</h1><a href=\"/\">Voltar</a>";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.headers["Content-Length"] = Response::toString(res.body.size());
         return res;
     }
 
@@ -405,7 +403,7 @@ Response    methodPostMultipart(const Request &req, const std::string &uploadDir
     {
         res.status = 400;
         res.body = "<h1>400 Bad Request (cannot parse multipart)</h1><a href=\"/\">Voltar</a>";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        res.headers["Content-Length"] = Response::toString(res.body.size());
         return res;
     }
 
@@ -420,7 +418,7 @@ Response    methodPostMultipart(const Request &req, const std::string &uploadDir
     res.status = 201;
     res.body = content;
     res.headers["Content-Type"] = "text/html";
-    res.headers["Content-Length"] = Utils::toString(res.body.size());
+    res.headers["Content-Length"] = Response::toString(res.body.size());
     return res;
 }
 

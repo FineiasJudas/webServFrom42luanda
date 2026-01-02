@@ -3,7 +3,7 @@
 
 #include "../../includes/Headers.hpp"
 #include "../config/Config.hpp"
-#include "../utils/Utils.hpp"
+#include "Request.hpp"
 
 struct  Response
 {
@@ -32,11 +32,18 @@ struct  Response
         }
     }
 
+    static std::string toString(size_t n)
+    {
+        std::ostringstream ss;
+        ss << n;
+        return (ss.str());
+    }
+
     std::string toString() const
     {
         std::ostringstream  oss;
 
-        oss << "HTTP/1.1 " << Utils::toString(status) << " " << reasonPhrase(status) << "\r\n";
+        oss << "HTTP/1.1 " << toString(status) << " " << reasonPhrase(status) << "\r\n";
         for (std::map<std::string,std::string>::const_iterator it = headers.begin(); it != headers.end(); ++it)
             oss << it->first << ": " << it->second << "\r\n";
         oss << "\r\n";

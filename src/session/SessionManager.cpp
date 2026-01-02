@@ -2,6 +2,7 @@
 #include "../http/Router.hpp"
 #include "../http/Request.hpp"
 #include "../http/Response.hpp"
+#include "../utils/Utils.hpp"
 #include <sstream>
 #include <cstdlib>
 

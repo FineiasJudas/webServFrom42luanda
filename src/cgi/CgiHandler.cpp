@@ -1,8 +1,9 @@
 #include "../../includes/Headers.hpp"
 #include "../utils/Logger.hpp"
+#include "../utils/Utils.hpp"
 #include "CgiHandler.hpp"
 
-// helper trimming
+//helper trimming
 static std::string trim(const std::string &s)
 {
     size_t a = s.find_first_not_of(" \t\r\n");
@@ -12,7 +13,7 @@ static std::string trim(const std::string &s)
     return s.substr(a, b - a + 1);
 }
 
-// split uri into path and query
+//split uri into path and query
 static void splitUri(const std::string &uri, std::string &path, std::string &query)
 {
     size_t q = uri.find('?');
@@ -48,19 +49,18 @@ static std::string normalizeHeaderKey(const std::string &key)
     return up;
 }
 
-static void addBasicVars(const Request &req, std::vector<std::string> &env)
+static void addBasicVars(const Request &req, std::vector<std::string> &env, const std::string upload_dir)
 {
     env.push_back("GATEWAY_INTERFACE=CGI/1.1");
     env.push_back("SERVER_PROTOCOL=" + req.version);
     env.push_back("REQUEST_METHOD=" + req.method);
     env.push_back("SERVER_SOFTWARE=webserv/1.0");
     env.push_back("REDIRECT_STATUS=200");
+    env.push_back("UPLOAD_DIR="+upload_dir);
 }
 
 static void addScriptVars(const std::string &script_path, std::vector<std::string> &env)
-{
-    env.push_back("SCRIPT_FILENAME=" + script_path);
-}
+{env.push_back("SCRIPT_FILENAME=" + script_path);}
 
 static void addUriVars(const Request &req, std::vector<std::string> &env)
 {
@@ -70,18 +70,14 @@ static void addUriVars(const Request &req, std::vector<std::string> &env)
     env.push_back("REQUEST_URI=" + req.uri);
     env.push_back("QUERY_STRING=" + query);
 
-    if (req.headers.count("Host"))
-        env.push_back("SERVER_NAME=" + req.headers.at("Host"));
-    else
-        env.push_back("SERVER_NAME=localhost");
+    if (req.headers.count("Host")){env.push_back("SERVER_NAME=" + req.headers.at("Host"));}
+    else{env.push_back("SERVER_NAME=localhost");}
 }
 
 static void addContentVars(const Request &req, std::vector<std::string> &env)
 {
-    if (req.headers.count("Content-Length"))
-        env.push_back("CONTENT_LENGTH=" + req.headers.at("Content-Length"));
-    if (req.headers.count("Content-Type"))
-        env.push_back("CONTENT_TYPE=" + req.headers.at("Content-Type"));
+    if (req.headers.count("Content-Length")){env.push_back("CONTENT_LENGTH=" + req.headers.at("Content-Length"));}
+    if (req.headers.count("Content-Type")){env.push_back("CONTENT_TYPE=" + req.headers.at("Content-Type"));}
 }
 
 static void addHttpHeaders(const Request &req, std::vector<std::string> &env)
@@ -100,90 +96,22 @@ static std::vector<std::string> buildEnv(
     const Request &req,
     const std::string &script_path,
     const ServerConfig &config,
-    const CgiConfig &cgiConfig)
+    const CgiConfig &cgiConfig,
+    const std::string upload_dir)
 {
     (void)config;
     std::vector<std::string> env;
 
-    addBasicVars(req, env);
+    addBasicVars(req, env, upload_dir);
     addScriptVars(script_path, env);
     addUriVars(req, env);
     addContentVars(req, env);
     addHttpHeaders(req, env);
 
-    if (cgiConfig.extension == ".php")
-    {
-        addPhpVars(env);
-    }
-    // else if (cgiConfig.cgi_extension == ".py")
-    // {
-    //     addPythonVars(env);
-    // }
-
+    if (cgiConfig.extension == ".php"){addPhpVars(env);}
+    // else if (cgiConfig.cgi_extension == ".py"){addPythonVars(env);}
     return env;
 }
-
-/*
-static std::vector<std::string> buildEnv(const Request &req,
-                                         const std::string &script_path, const ServerConfig &config)
-{
-    (void)config;
-    std::vector<std::string> env;
-
-    // Basic CGI/1.1 required vars
-    env.push_back(std::string("GATEWAY_INTERFACE=CGI/1.1"));
-    env.push_back(std::string("SERVER_PROTOCOL=") + req.version);
-    env.push_back(std::string("REQUEST_METHOD=") + req.method);
-
-    // SCRIPT_NAME and PATH_INFO: simplest approach - use script path as SCRIPT_NAME
-    // user/router should compute script_path as file-system path; we'll set SCRIPT_FILENAME to that.
-    env.push_back(std::string("SCRIPT_FILENAME=") + script_path);
-
-    // URI split
-    std::string path, query;
-    splitUri(req.uri, path, query);
-    env.push_back(std::string("REQUEST_URI=") + req.uri);
-    env.push_back(std::string("QUERY_STRING=") + query);
-
-    // Host header -> SERVER_NAME
-    if (req.headers.count("Host"))
-        env.push_back(std::string("SERVER_NAME=") + req.headers.find("Host")->second);
-    else
-        env.push_back(std::string("SERVER_NAME=localhost"));
-
-    // CONTENT_LENGTH / CONTENT_TYPE from request headers (for POST)
-    if (req.headers.count("Content-Length"))
-        env.push_back(std::string("CONTENT_LENGTH=") + req.headers.find("Content-Length")->second);
-    if (req.headers.count("Content-Type"))
-        env.push_back(std::string("CONTENT_TYPE=") + req.headers.find("Content-Type")->second);
-
-    // Standard useful vars
-    env.push_back(std::string("SERVER_SOFTWARE=webserv/1.0"));
-
-    // Add HTTP_ headers as CGI expects (HTTP_HEADERNAME)
-    for (std::map<std::string, std::string>::const_iterator it = req.headers.begin(); it != req.headers.end(); ++it)
-    {
-        std::string key = it->first;
-        std::string val = it->second;
-        // Normalize key: make uppercase, replace '-' with '_'
-        std::string up;
-        for (size_t i = 0; i < key.size(); ++i)
-        {
-            char c = key[i];
-            if (c == '-')
-                up += '_';
-            else
-                up += (char)toupper(c);
-        }
-        std::string envname = std::string("HTTP_") + up + "=" + val;
-        env.push_back(envname);
-    }
-
-    // If ServerConfig has error_pages or other info, you can add them here if needed.
-
-    return env;
-}
-    */
 
 CgiResult CgiHandler::execute(const Request &req,
                               const std::string &script_path,
@@ -208,25 +136,12 @@ CgiResult CgiHandler::execute(const Request &req,
     }
 
     // ------------------ INTERPRETER ---------------------
-    std::string interpreter;
-    if (cgiConfig.path.empty())
-    {
-        if (cgiConfig.extension == ".php")
-            interpreter = "/usr/bin/php-cgi";
-        else if (cgiConfig.extension == ".py")
-            interpreter = "/usr/bin/python3";
-    }
-    else
-        interpreter = cgiConfig.path;
-
-    Logger::log(Logger::INFO, "CGI Interpreter: " + interpreter);
-
+    std::string interpreter = Utils::getInterpreterCGI(cgiConfig.path, cgiConfig.extension);
     if (interpreter.empty())
     {
-        result.raw_output =
-            "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
-            "CGI interpreter not defined\n";
-        return result;
+        Response res = (Utils::makeErrorResponse(500, "<h1>500 CGI interpreter not defined</h1>"));
+         result.raw_output = res.toString();
+         return result;
     }
 
     if (access(interpreter.c_str(), X_OK) != 0)
@@ -240,11 +155,10 @@ CgiResult CgiHandler::execute(const Request &req,
     // ------------------ BUILD ENV -----------------------
     // Instead of strdup (POSIX), keep std::string storage and use c_str() pointers.
     // In C++98, c_str() returns const char*, so we cast away const for execve.
-    std::vector<std::string> env_storage = buildEnv(req, script_path, config, cgiConfig);
+    std::vector<std::string> env_storage = buildEnv(req, script_path, config, cgiConfig, loc.upload_dir);
     std::vector<char *> envp;
     envp.reserve(env_storage.size() + 1);
-    for (size_t i = 0; i < env_storage.size(); ++i)
-        envp.push_back(const_cast<char *>(env_storage[i].c_str()));
+    for (size_t i = 0; i < env_storage.size(); ++i){envp.push_back(const_cast<char *>(env_storage[i].c_str()));}
     envp.push_back(NULL);
 
     // ------------------ ARGV ----------------------------
@@ -262,8 +176,7 @@ CgiResult CgiHandler::execute(const Request &req,
 
     std::vector<char *> argv_vec;
     argv_vec.reserve(argv_storage.size() + 1);
-    for (size_t i = 0; i < argv_storage.size(); ++i)
-        argv_vec.push_back(const_cast<char *>(argv_storage[i].c_str()));
+    for (size_t i = 0; i < argv_storage.size(); ++i){argv_vec.push_back(const_cast<char *>(argv_storage[i].c_str()));}
     argv_vec.push_back(NULL);
 
     int stdin_pipe[2];
@@ -387,10 +300,8 @@ CgiResult CgiHandler::execute(const Request &req,
     }
     else
     {
-        if (WIFEXITED(status))
-            result.exit_status = WEXITSTATUS(status);
-        else
-            result.exit_status = -1;
+        if (WIFEXITED(status)) {result.exit_status = WEXITSTATUS(status);}
+        else {result.exit_status = -1;}
 
         result.raw_output = output;
     }
@@ -404,33 +315,19 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
     Response res;
 
     Logger::log(Logger::INFO, "::::::CGI Raw Output:\n" + raw);
-    // 1. separar headers e body
-    // Tenta CRLF primeiro (padrão CGI)
+    //separar headers e body
     size_t pos = raw.find("\r\n\r\n");
 
-    // Se não existir, tenta LF-LF (Python print padrão)
-    if (pos == std::string::npos)
-        pos = raw.find("\n\n");
-
-    if (pos == std::string::npos)
-    {
-        // CGI realmente inválido
-        /*
-            Veja só todos iguais, refatorar
-        */
-        res.status = 500;
-        res.body = "<h1>500 Invalid CGI Output</h1>";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
-        res.headers["Content-Type"] = "text/html";
-        return res;
-    }
+    if (pos == std::string::npos){pos = raw.find("\n\n");}
+    // CGI realmente inválido
+    if (pos == std::string::npos){return Utils::makeErrorResponse(500, "<h1>500 Invalid CGI Output</h1>");}
 
     std::string header_part = raw.substr(0, pos);
     std::string body_part = raw.substr(pos + 4);
 
     res.body = body_part;
 
-    // 2. parse headers linha por linha
+    //parse headers linha por linha
     std::istringstream iss(header_part);
     std::string line;
     bool has_status = false;
@@ -464,7 +361,7 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
     if (!has_status)
         res.status = 200;
 
-    // 3. garantir Content-Length se não fornecido
+    //garantir Content-Length se não fornecido
     if (res.headers.find("Content-Length") == res.headers.end())
         res.headers["Content-Length"] = Utils::toString(res.body.size());
 
@@ -478,36 +375,14 @@ Response CgiHandler::handleCgiRequest(const Request &req,
 {
     Response res;
     //(void) cgiConfig;
-
     // monta caminho real do script
-
     //    std::string script_path = loc.root + req.uri.substr(loc.path.size());
     std::string script_path = loc.root + "/" + req.path.substr(loc.path.size());
 
-    // passar de alguma forma a extencao
+    //passar de alguma forma a extencao
     CgiResult result = CgiHandler::execute(req, script_path, config, loc, cgiConfig);
-
-    if (result.exit_status == 504)
-    {
-        /*
-        uma funcao para esses retornos, parecem todos iguas.
-        Reutilizar
-        */
-        res.status = 504;
-        res.body = "<h1>504 Gateway Timeout (CGI)</h1>";
-        res.headers["Content-Type"] = "text/html";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
-        return res;
-    }
-
+    if (result.exit_status == 504){return Utils::makeErrorResponse(504, "<h1>504 Gateway Timeout (CGI)</h1>");}
     if (result.exit_status != 0 && result.exit_status != 200 && !result.raw_output.size())
-    {
-        res.status = 500;
-        res.body = "<h1>500 CGI Execution Failed</h1>";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
-        res.headers["Content-Type"] = "text/html";
-        return res;
-    }
-
+    {return Utils::makeErrorResponse(500, "<h1>500 CGI Execution Failed</h1>");}
     return CgiHandler::parseCgiOutput(result.raw_output);
 }

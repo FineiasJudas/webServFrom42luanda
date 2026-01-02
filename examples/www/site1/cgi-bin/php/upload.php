@@ -8,7 +8,9 @@ if (!isset($_FILES['file'])) {
 
 // Caminho relativo ao projeto: sobe duas pastas a partir do script
 $projectRoot = dirname(dirname(__DIR__)); // __DIR__ é o diretório do script
-$uploadDir = $projectRoot . "/uploads";
+$uploadDir_ = getenv('UPLOAD_DIR');
+if (empty($uploadDir_)) {$uploadDir_ = "/uploads_";}
+$uploadDir = $projectRoot . $uploadDir_;
 
 if (!is_dir($uploadDir)) {
     mkdir($uploadDir, 0777, true);

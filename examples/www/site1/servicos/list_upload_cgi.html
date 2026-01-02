@@ -35,13 +35,6 @@
             document.getElementById('status').textContent = "";
         }
 
-        function deleteFile(filename) {
-            if (confirm("Deseja realmente excluir o arquivo: " + filename + " ?")) {
-                // Chama o CGI de exclusão passando o nome do arquivo
-                const url = "/cgi-bin/php/delete_file.php?file=" + encodeURIComponent(filename);
-                document.getElementById('frameResult').src = url;
-            }
-        }
     </script>
 </head>
 <body>
@@ -58,6 +51,6 @@
     <iframe id="frameResult" name="frameResult" onload="enableButton()"></iframe>
 
     <hr>
-    <p><strong>Nota:</strong> Clique em "Listar Arquivos" para ver os arquivos carregados. Cada arquivo terá um botão "Excluir" que pede confirmação antes de deletar.</p>
+    <p><strong>Nota:</strong> Clique em "Listar Arquivos" para ver os arquivos carregados. Cada arquivo terá um botão "Excluir" para deletar</p>
 </body>
 </html>

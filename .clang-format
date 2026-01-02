@@ -1,0 +1,6 @@
+BasedOnStyle: LLVM
+AllowShortIfStatementsOnASingleLine: All
+AllowShortBlocksOnASingleLine: Always
+BreakBeforeBraces: Attach
+IndentWidth: 4
+ColumnLimit: 0
