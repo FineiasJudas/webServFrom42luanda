@@ -1,112 +1,154 @@
 <?php
 header("Content-Type: text/html; charset=UTF-8");
 
-// Definir diretório de uploads
+/*
+ UPLOAD DIR (ENV)
+*/
 $projectRoot = dirname(dirname(__DIR__));
-$uploadDir_ = getenv('UPLOAD_DIR');
-if (empty($uploadDir_)) {
-    $uploadDir_ = "/uploads_";
-}
-$uploadDir = $projectRoot . $uploadDir_;
 
+$uploadDirEnv = getenv('UPLOAD_DIR');
+if (empty($uploadDirEnv)) {
+    $uploadDirEnv = '/uploads_'; // fallback
+}
+
+/* Caminho físico */
+$uploadDir = rtrim($projectRoot . $uploadDirEnv, '/');
+
+/* Caminho público (URL) */
+$uploadUrl = rtrim($uploadDirEnv, '/');
+
+/*
+ JSON DETECTION
+*/
+$accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+$isJson = str_contains($accept, 'application/json')
+       || ($_GET['format'] ?? '') === 'json';
+
+/*
+   DIR CHECK
+*/
 if (!is_dir($uploadDir)) {
-    echo "<p>Nenhum arquivo encontrado.</p>";
-    exit;
-}
+    http_response_code(404);
 
-// Listar arquivos, excluindo '.' e '..'
-$files = array_diff(scandir($uploadDir), array('.', '..'));
-
-if (empty($files)) {
-    echo "<p>Nenhum arquivo carregado.</p>";
-    exit;
-}
-
-// Função para criar preview de nome
-function filePreview($filename) {
-    $ext = pathinfo($filename, PATHINFO_EXTENSION);
-    $name = pathinfo($filename, PATHINFO_FILENAME);
-    if (strlen($name) > 5) {
-        $name = substr($name, 0, 5) . '...';
+    if ($isJson) {
+        header("Content-Type: application/json; charset=UTF-8");
+        echo json_encode([
+            'files' => [],
+            'error' => 'Diretório não encontrado'
+        ]);
+    } else {
+        echo "<p>Nenhum arquivo encontrado.</p>";
     }
-    return $name . '.' . $ext;
+    exit;
+}
+
+/*
+    FILE LIST
+*/
+$files = array_values(array_diff(scandir($uploadDir), ['.', '..']));
+
+/*
+   🔹 JSON RESPONSE
+*/
+if ($isJson) {
+    header("Content-Type: application/json; charset=UTF-8");
+
+    $data = [];
+
+    foreach ($files as $file) {
+        $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+
+        $data[] = [
+            'name' => $file,
+            'extension' => $ext,
+            'url' => $uploadUrl . '/' . rawurlencode($file),
+            'type' => in_array($ext, ['jpg','jpeg','png','gif','webp']) ? 'image'
+                   : (in_array($ext, ['mp4','webm','ogg']) ? 'video'
+                   : (in_array($ext, ['mp3','wav','ogg']) ? 'audio'
+                   : 'file'))
+        ];
+    }
+
+    echo json_encode([
+        'count' => count($data),
+        'files' => $data
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    exit;
+}
+
+/*
+    HTML RESPONSE
+*/
+
+function filePreview($filename) {
+    $ext  = pathinfo($filename, PATHINFO_EXTENSION);
+    $name = pathinfo($filename, PATHINFO_FILENAME);
+    return strlen($name) > 5 ? substr($name, 0, 5) . '....' . $ext : $filename;
 }
 
 echo <<<HTML
 <style>
-    .file-grid { display: flex; flex-wrap: wrap; gap: 15px; }
-    .file-card {
-        border: 1px solid #ccc;
-        padding: 10px;
-        width: 200px;
-        text-align: center;
-        font-family: sans-serif;
-        word-break: break-word;
-    }
-    .file-card img, .file-card video, .file-card audio {
-        max-width: 100%;
-        max-height: 120px;
-        display: block;
-        margin: 5px auto;
-    }
-    button { margin: 3px; padding: 5px 8px; cursor: pointer; }
+.file-grid { display: flex; flex-wrap: wrap; gap: 15px; }
+.file-card {
+    border: 1px solid #ccc;
+    padding: 10px;
+    width: 200px;
+    text-align: center;
+    font-family: sans-serif;
+    word-break: break-word;
+}
+.file-card img, video, audio {
+    max-width: 100%;
+    max-height: 120px;
+    display: block;
+    margin: 6px auto;
+}
+button { margin: 3px; padding: 5px 8px; cursor: pointer; }
 </style>
 
 <script>
-    function deleteFile(fileName) {
-        if (!confirm('Tem certeza que deseja excluir "' + fileName + '"?')) return;
+function deleteFile(fileName) {
+    if (!confirm('Excluir "' + fileName + '"?')) return;
 
-        fetch('/cgi-bin/php/delete_file.php', {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: 'file=' + encodeURIComponent(fileName)
-        })
-        .then(resp => {
-            if (!resp.ok) throw new Error('Falha na exclusão');
-            return resp.text();
-        })
-        .then(() => location.reload())
-        .catch(err => alert('Erro ao excluir: ' + err.message));
-    }
+    fetch('/cgi-bin/php/delete_file.php', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'file=' + encodeURIComponent(fileName)
+    })
+    .then(r => {
+        if (!r.ok) throw new Error();
+        location.reload();
+    })
+    .catch(() => alert('Erro ao excluir'));
+}
 </script>
 
 <div class="file-grid">
 HTML;
 
-// Loop pelos arquivos
 foreach ($files as $file) {
-    $filePath = $uploadDir . "/" . $file;
-    $fileUrl  = $uploadDir_ . "/" . rawurlencode($file); // URL segura
     $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-    $preview = filePreview($file);
-
-    $jsFileName = htmlspecialchars($file, ENT_QUOTES);       // Para JS
-    $escapedFileUrl = htmlspecialchars($fileUrl, ENT_QUOTES); // Para HTML
+    $url = $uploadUrl . '/' . rawurlencode($file);
+    $safeFile = htmlspecialchars($file, ENT_QUOTES);
 
     echo "<div class='file-card'>";
-    echo "<strong title='{$jsFileName}'>$preview</strong>";
+    echo "<strong title='{$safeFile}'>" . filePreview($file) . "</strong>";
 
-    // Preview de mídia
     if (in_array($ext, ['jpg','jpeg','png','gif','webp'])) {
-        echo "<img src='{$escapedFileUrl}' alt='{$jsFileName}'>";
+        echo "<img src='{$url}'>";
     } elseif (in_array($ext, ['mp4','webm','ogg'])) {
-        echo "<video controls src='{$escapedFileUrl}'></video>";
+        echo "<video src='{$url}' controls></video>";
     } elseif (in_array($ext, ['mp3','wav','ogg'])) {
-        echo "<audio controls src='{$escapedFileUrl}'></audio>";
+        echo "<audio src='{$url}' controls></audio>";
     } else {
-        echo "<p>Arquivo não visualizável</p>";
+        echo "<p>Arquivo</p>";
     }
 
-    // Botões
     echo "<div>";
-    echo "<button onclick=\"window.open('{$escapedFileUrl}', '_blank')\">View</button>";
-    echo "<button onclick=\"deleteFile('{$jsFileName}')\">Excluir</button>";
+    echo "<button onclick=\"window.open('{$url}', '_blank')\">Ver</button>";
+    echo "<button onclick=\"deleteFile('{$safeFile}')\">Excluir</button>";
     echo "</div>";
-
     echo "</div>";
 }
 
 echo "</div>";
-?>

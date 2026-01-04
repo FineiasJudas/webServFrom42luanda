@@ -1,37 +1,34 @@
 <?php
-header("Content-Type: text/html");
+header("Content-Type: text/html; charset=UTF-8");
 
 if (!isset($_FILES['file'])) {
-    echo "<p>Nenhum arquivo recebido</p>";
-    exit;
+    exit("<p>Nenhum arquivo recebido</p>");
 }
 
-// Caminho relativo ao projeto: sobe duas pastas a partir do script
-$projectRoot = dirname(dirname(__DIR__)); // __DIR__ é o diretório do script
-$uploadDir_ = getenv('UPLOAD_DIR');
-if (empty($uploadDir_)) {$uploadDir_ = "/uploads_";}
+$projectRoot = dirname(dirname(__DIR__));
+$uploadDir_ = getenv('UPLOAD_DIR') ?: "/uploads_";
 $uploadDir = $projectRoot . $uploadDir_;
 
 if (!is_dir($uploadDir)) {
     mkdir($uploadDir, 0777, true);
 }
 
-// Nome original do arquivo
 $originalName = basename($_FILES['file']['name']);
 $pathInfo = pathinfo($originalName);
 
-// Adiciona timestamp ao nome do arquivo para evitar sobrescrever
+// (opcional) normalizar nome
+$filename = $pathInfo['filename'];
+$filename = preg_replace('/[^A-Za-z0-9._-]/', '_', $filename);
+
 $timestamp = time();
-$dest = $uploadDir . "/" . $pathInfo['filename'] . "_" . $timestamp;
-if (isset($pathInfo['extension']) && $pathInfo['extension'] !== '') {
+$dest = $uploadDir . "/" . $filename . "_" . $timestamp;
+
+if (!empty($pathInfo['extension'])) {
     $dest .= "." . $pathInfo['extension'];
 }
 
 if (move_uploaded_file($_FILES['file']['tmp_name'], $dest)) {
-    $conteudo = file_get_contents("./sucessUpload.html");
-    echo $conteudo;
-    //echo "<p>Upload feito com sucesso!</p>";
-    //echo "<p>Salvo em: $dest</p>";
+    echo file_get_contents("./sucessUpload.html");
 } else {
     echo "<p>Falha ao mover o arquivo.</p>";
 }

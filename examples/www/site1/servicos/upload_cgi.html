@@ -14,12 +14,14 @@
 <body>
     <h2>Upload de Arquivo via CGI (PHP)</h2>
 
-    <form id="uploadForm" action="/cgi-bin/php/upload.php"
+    <form id="uploadForm" action="/cgi-bin/php/upload.php?format=plain"
           method="POST"
-          enctype="multipart/form-data">
+          enctype="multipart/form-data" >
 
         <label for="file">Selecionar arquivo:</label><br>
-        <input type="file" id="file" name="file" required><br><br>
+        <input type="file" id="file" name="file" required
+       accept="*/*"
+       onchange="validateFileSize(this)"><br><br>
 form
         <button type="submit" id="submitBtn">Enviar Arquivo</button>
     </form>
@@ -34,6 +36,18 @@ form
         const form = document.getElementById('uploadForm');
         const submitBtn = document.getElementById('submitBtn');
         const loading = document.getElementById('loading');
+
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+        function validateFileSize(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            if (file.size > MAX_FILE_SIZE) {
+                alert("Arquivo muito grande! Máximo permitido: 5MB.");
+                input.value = "";
+            }
+        }
 
         form.addEventListener('submit', function() {
             submitBtn.disabled = true; // desabilita o botão
