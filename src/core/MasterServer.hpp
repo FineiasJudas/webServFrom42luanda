@@ -35,6 +35,7 @@ class   MasterServer
         void    handleRead(int clientFd);
         void    handleWrite(int clientFd);
         void    closeConnection(int clientFd);
+        void    send413Immediately(Connection *conn, int clientFd);
 
         ServerConfig    *selectServerForRequest(const Request &req, int listenFd);
 

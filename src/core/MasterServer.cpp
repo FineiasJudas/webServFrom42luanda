@@ -289,6 +289,33 @@ void MasterServer::handleRead(int clientFd)
 }
 */
 
+void MasterServer::send413Immediately(Connection *conn, int clientFd)
+{
+    Response res;
+    res.status = 413;
+    res.body =
+        "<html><body>"
+        "<h1>413 Payload Too Large</h1>"
+        "<a href=\"/\" target=\"_top\">Voltar</a>"
+        "</body></html>";
+
+    res.headers["Content-Type"] = "text/html";
+    res.headers["Content-Length"] = Utils::toString(res.body.size());
+    res.headers["Connection"] = "close";
+
+    // Enviar resposta
+    conn->getOutputBuffer().append(res.toString());
+
+    // Marcar fechamento após envio
+    conn->setCloseAfterSend(true);
+
+    // Desativar leitura, ativar escrita
+    poller.modifyFd(clientFd, EPOLLOUT);
+
+    Logger::log(Logger::NEW, "Status 413 Payload Too Large (Content-Length)");
+}
+
+
 void MasterServer::handleRead(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
@@ -298,8 +325,7 @@ void MasterServer::handleRead(int clientFd)
     Connection *conn = it->second;
 
     // Se já decidimos fechar, não lemos mais nada
-    if (conn->shouldCloseAfterSend())
-        return;
+    if (conn->shouldCloseAfterSend()){return;}
 
     size_t max_body = 1024 * 1024; // 1 MB default
     std::map<int, ServerConfig *>::const_iterator vec =
@@ -314,14 +340,7 @@ void MasterServer::handleRead(int clientFd)
         + ", buffer tem " + Utils::toString(conn->getInputBuffer().size()) + " bytes");
 
     // Primeiro: tratar retorno do read
-    if (n == 0) {
-        closeConnection(clientFd);
-        return;
-    }
-    if (n < 0) {
-        // EAGAIN / EWOULDBLOCK em LT não é erro fatal
-        return;
-    }
+    if (n <= 0) {return;}
 
     // Detectar payload demasiado grande
     if (conn->getInputBuffer().size() > max_body)
@@ -360,6 +379,18 @@ void MasterServer::handleRead(int clientFd)
         if (!HttpParser::parseRequest(conn->getInputBuffer(), req, max_body))
             break;
 
+                /*  ADD AQUI :: */
+        if (req.headers.count("Content-Length"))
+        {
+            size_t cl = std::strtoul(req.headers["Content-Length"].c_str(), NULL, 10);
+
+            Logger::log(Logger::WINT, "Content-Length recebido: " + Utils::toString(cl));
+            if (cl > max_body)
+            {
+                send413Immediately(conn, clientFd);
+                return;
+            }
+        }
         ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
         conn->setServer(sc);
 

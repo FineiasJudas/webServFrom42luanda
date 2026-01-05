@@ -124,6 +124,23 @@ CgiResult CgiHandler::execute(const Request &req,
     result.exit_status = -1;
     result.raw_output = "";
 
+/*
+    // ------------------ SECURITY CHECKS ------------------
+    char resolved_script[PATH_MAX];
+    char resolved_cgi_root[PATH_MAX];
+
+    if (!realpath(script_path.c_str(), resolved_script) ||
+        !realpath(cgiConfig.path.c_str(), resolved_cgi_root) ||
+        strncmp(resolved_script, resolved_cgi_root, strlen(resolved_cgi_root)) != 0)
+    {
+        result.exit_status = 403;
+        result.raw_output =
+            "Status: 403\r\nContent-Type: text/plain\r\n\r\n"
+            "Forbidden CGI path\n";
+        return result;
+    }
+*/
+
     // ------------------ SCRIPT EXISTS? ------------------
     struct stat st;
     if (stat(script_path.c_str(), &st) != 0)
@@ -134,6 +151,28 @@ CgiResult CgiHandler::execute(const Request &req,
             script_path + "\n";
         return result;
     }
+
+    // ------------------ IS REGULAR FILE? -----------------
+
+    /*
+    if (!S_ISREG(st.st_mode))
+    {
+        result.exit_status = 403;
+        result.raw_output =
+            "Status: 403\r\nContent-Type: text/plain\r\n\r\n"
+            "CGI is not a regular file\n";
+        return result;
+    }
+
+    if (access(script_path.c_str(), R_OK) != 0)
+    {
+        result.exit_status = 403;
+        result.raw_output =
+            "Status: 403\r\nContent-Type: text/plain\r\n\r\n"
+            "CGI script not readable\n";
+        return result;
+    }
+    */
 
     // ------------------ INTERPRETER ---------------------
     std::string interpreter = Utils::getInterpreterCGI(cgiConfig.path, cgiConfig.extension);
