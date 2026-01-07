@@ -13,13 +13,27 @@ Connection::Connection(int fd)
       last_activity_time(time(NULL)),
       waiting_for_write(false),
       write_start_time(0),
-      is_rejeting(false)
+      is_rejeting(false),
+      cgi_state(NULL)
 {
 }
 
 Connection::~Connection()
 {
     ::close(fd);
+    if (cgi_state)
+    {
+        if (cgi_state->stdout_fd != -1)
+            close(cgi_state->stdout_fd);
+        if (cgi_state->stdin_fd != -1)
+            close(cgi_state->stdin_fd);
+        if (cgi_state->pid > 0)
+        {
+            kill(cgi_state->pid, SIGKILL);
+            waitpid(cgi_state->pid, NULL, 0);
+        }
+        delete cgi_state;
+    }
 }
 
 ssize_t Connection::readFromFd()

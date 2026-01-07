@@ -7,6 +7,7 @@
 #include "../exceptions/WebServException.hpp"
 #include "./../utils/keywords.hpp"
 #include "../session/SessionManager.hpp"
+#include "../cgi/CgiHandler.hpp"
 
 volatile sig_atomic_t g_running = 1;
 
@@ -297,38 +298,35 @@ void MasterServer::handleRead(int clientFd)
 
     Connection *conn = it->second;
 
-    // Se já decidimos fechar, não lemos mais nada
     if (conn->shouldCloseAfterSend())
         return;
 
-    size_t max_body = 1024 * 1024; // 1 MB default
+    size_t max_body = 1024 * 1024;
     std::map<int, ServerConfig *>::const_iterator vec =
         listenFdToServers.find(conn->getListenFd());
     if (vec != listenFdToServers.end() && vec->second)
         max_body = vec->second->max_body_size;
 
-    // Ler uma vez (epoll LT)
     if (conn->is_rejeting)
     {
         Logger::log(Logger::WARN,
                 "Conexao do FD" + Utils::toString(clientFd) + " rejeitada!");
     }
+    
     ssize_t n = conn->readFromFd();
     Logger::log(Logger::WINT,
                 "Lidos " + Utils::toString(n) + " bytes da FD " +
                 Utils::toString(clientFd) + ", buffer de entrada tem " +
                 Utils::toString(conn->getInputBuffer().size()) + " bytes");
-    // Primeiro: tratar retorno do read
+
     if (n == 0) {
         closeConnection(clientFd);
         return;
     }
     if (n < 0) {
-        // EAGAIN / EWOULDBLOCK em LT não é erro fatal
         return;
     }
 
-    // Detectar payload demasiado grande
     if (conn->getInputBuffer().size() > max_body)
     {
         Response res;
@@ -344,20 +342,16 @@ void MasterServer::handleRead(int clientFd)
         res.headers["Connection"] = "close";
 
         conn->getOutputBuffer().append(res.toString());
-
-        // Só escrita a partir daqui (desativa leitura)
         poller.modifyFd(clientFd, EPOLLOUT);
         
-        // Marcar fechamento limpo após envio
         Logger::log(Logger::NEW, "Status 413 Payload Too Large");
         conn->is_rejeting = true;
-        //conn->setCloseAfterSend(true);
-        return ;
+        return;
     }
 
     int processed = 0;
+    bool has_pending_cgi = false;  // NOVO
 
-    // Processar pedidos completos (pode haver mais que um)
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
         Request req;
@@ -384,6 +378,28 @@ void MasterServer::handleRead(int clientFd)
 
         Response res = Router::route(req, *sc);
 
+        // NOVO: Verificar se é CGI pendente
+        if (res.status == 0 && conn->cgi_state)
+        {
+            Logger::log(Logger::INFO, "CGI pendente detectado, aguardando conclusão...");
+            
+            // Adicionar stdout do CGI ao epoll para leitura
+            poller.addFd(conn->cgi_state->stdout_fd, EPOLLIN);
+            cgiFdToClientFd[conn->cgi_state->stdout_fd] = clientFd;  // MAPEAR
+            
+            // Se ainda temos stdin aberto, adicionar para escrita
+            if (conn->cgi_state->stdin_fd != -1)
+            {
+                poller.addFd(conn->cgi_state->stdin_fd, EPOLLOUT);
+                cgiFdToClientFd[conn->cgi_state->stdin_fd] = clientFd;  // MAPEAR
+            }
+            
+            has_pending_cgi = true;  // MARCAR
+            processed++;
+            break;  // Importante: parar de processar mais requests
+        }
+
+        // Log do status
         (res.status >= 200 && res.status <= 300)
             ? Logger::log(Logger::DEBUG,
                           "Status " + Utils::toString(res.status) + " " +
@@ -393,15 +409,17 @@ void MasterServer::handleRead(int clientFd)
                           Response::reasonPhrase(res.status));
 
         conn->getOutputBuffer().append(res.toString());
-
         processed++;
     }
 
-    // Se geramos resposta(s), mudar para escrita
-    if (processed > 0)
+    // CORRIGIDO: Só mudar para escrita se não há CGI pendente
+    if (processed > 0 && !has_pending_cgi)
         poller.modifyFd(clientFd, EPOLLOUT);
+    
+    // Se há CGI pendente, desativar leitura até CGI terminar
+    if (has_pending_cgi)
+        poller.modifyFd(clientFd, 0);  // Sem eventos até CGI terminar
 }
-
 
 void MasterServer::handleWrite(int clientFd)
 {
@@ -456,6 +474,142 @@ void MasterServer::handleWrite(int clientFd)
     } // continuar a escutar escrita
 }
 
+// Implementação
+void MasterServer::handleCgiRead(int cgiFd)
+{
+    std::map<int, int>::iterator it = cgiFdToClientFd.find(cgiFd);
+    if (it == cgiFdToClientFd.end())  // CORRIGIDO: era connections.end()
+        return;
+    
+    int clientFd = it->second;
+    
+    std::map<int, Connection *>::iterator conn_it = connections.find(clientFd);
+    if (conn_it == connections.end())
+        return;
+    
+    Connection *conn = conn_it->second;
+    if (!conn || !conn->cgi_state)
+        return;
+    
+    char buffer[4096];
+    ssize_t n = read(cgiFd, buffer, sizeof(buffer));
+    
+    if (n > 0)
+    {
+        conn->cgi_state->output.append(buffer, n);
+        Logger::log(Logger::INFO, "CGI: Lidos " + Utils::toString(n) + " bytes do stdout");
+    }
+    else if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK))
+    {
+        Logger::log(Logger::INFO, "CGI: EOF no stdout, aguardando término do processo");
+        
+        // EOF ou erro - CGI terminou de escrever
+        poller.removeFd(cgiFd);
+        close(cgiFd);
+        cgiFdToClientFd.erase(cgiFd);
+        conn->cgi_state->stdout_fd = -1;
+        
+        // Verificar se o processo terminou
+        int status;
+        pid_t result = waitpid(conn->cgi_state->pid, &status, WNOHANG);
+        if (result > 0)
+        {
+            Logger::log(Logger::INFO, "CGI: Processo terminou, finalizando");
+            finalizeCgi(clientFd);
+        }
+        else if (result == 0)
+        {
+            Logger::log(Logger::INFO, "CGI: Processo ainda ativo, aguardando...");
+            // Processo ainda está a correr, aguardar mais
+            // O timeout vai apanhá-lo se demorar muito
+        }
+    }
+}
+
+void MasterServer::handleCgiWrite(int cgiFd)
+{
+    std::map<int, int>::iterator it = cgiFdToClientFd.find(cgiFd);
+    if (it == cgiFdToClientFd.end())
+        return;
+    
+    int clientFd = it->second;
+    Connection *conn = connections[clientFd];
+    if (!conn || !conn->cgi_state || conn->cgi_state->stdin_closed)
+        return;
+    
+    // Escrever body restante (se houver)
+    // Por agora, fechar stdin
+    poller.removeFd(cgiFd);
+    close(cgiFd);
+    conn->cgi_state->stdin_fd = -1;
+    conn->cgi_state->stdin_closed = true;
+}
+
+void MasterServer::finalizeCgi(int clientFd)
+{
+    std::map<int, Connection *>::iterator it = connections.find(clientFd);
+    if (it == connections.end())
+        return;
+    
+    Connection *conn = it->second;
+    if (!conn || !conn->cgi_state)
+        return;
+    
+    Logger::log(Logger::INFO, "Finalizando CGI para FD " + Utils::toString(clientFd));
+    
+    // Remover FDs do epoll se ainda existirem
+    if (conn->cgi_state->stdout_fd != -1)
+    {
+        poller.removeFd(conn->cgi_state->stdout_fd);
+        close(conn->cgi_state->stdout_fd);
+        cgiFdToClientFd.erase(conn->cgi_state->stdout_fd);
+    }
+    
+    if (conn->cgi_state->stdin_fd != -1)
+    {
+        poller.removeFd(conn->cgi_state->stdin_fd);
+        close(conn->cgi_state->stdin_fd);
+        cgiFdToClientFd.erase(conn->cgi_state->stdin_fd);
+    }
+    
+    // Processar output do CGI
+    if (!conn->cgi_state->output.empty())
+    {
+        Logger::log(Logger::INFO, "CGI: Processando " + 
+                    Utils::toString(conn->cgi_state->output.size()) + " bytes de output");
+        
+        Response res = CgiHandler::parseCgiOutput(conn->cgi_state->output);
+        
+        // Log do status
+        (res.status >= 200 && res.status <= 300)
+            ? Logger::log(Logger::DEBUG,
+                          "Status " + Utils::toString(res.status) + " " +
+                          Response::reasonPhrase(res.status))
+            : Logger::log(Logger::ERROR,
+                          "Status " + Utils::toString(res.status) + " " +
+                          Response::reasonPhrase(res.status));
+        
+        conn->getOutputBuffer().append(res.toString());
+    }
+    else
+    {
+        Logger::log(Logger::WARN, "CGI: Output vazio!");
+        Response res;
+        res.status = 500;
+        res.body = "<h1>500 CGI Empty Output</h1>";
+        res.headers["Content-Type"] = "text/html";
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
+        conn->getOutputBuffer().append(res.toString());
+    }
+    
+    // Limpar estado CGI
+    delete conn->cgi_state;
+    conn->cgi_state = NULL;
+    
+    // Ativar escrita para enviar resposta
+    poller.modifyFd(clientFd, EPOLLOUT);
+}
+
 void MasterServer::closeConnection(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
@@ -505,38 +659,103 @@ void MasterServer::checkTimeouts()
         closeConnection(toClose[i]);
 }
 
+void    MasterServer::checkCgiTimeouts()
+{
+    time_t now = time(NULL);
+    std::vector<int> to_kill;
+    
+    for (std::map<int, Connection *>::iterator it = connections.begin();
+         it != connections.end(); ++it)
+    {
+        Connection *conn = it->second;
+        if (!conn->cgi_state)
+            continue;
+        
+        ServerConfig *sc = conn->getServer();
+        if (!sc || sc->cgi_timeout <= 0)
+            continue;
+        
+        if ((now - conn->cgi_state->start_time) > sc->cgi_timeout)
+        {
+            Logger::log(Logger::WARN, "CGI timeout na FD " + Utils::toString(it->first));
+            to_kill.push_back(it->first);
+        }
+    }
+    
+    for (size_t i = 0; i < to_kill.size(); ++i)
+    {
+        Connection *conn = connections[to_kill[i]];
+        if (conn->cgi_state)
+        {
+            kill(conn->cgi_state->pid, SIGKILL);
+            waitpid(conn->cgi_state->pid, NULL, 0);
+            
+            Response res;
+            res.status = 504;
+            res.body = "<h1>504 CGI Timeout</h1>";
+            res.headers["Content-Type"] = "text/html";
+            res.headers["Content-Length"] = Utils::toString(res.body.size());
+            conn->getOutputBuffer().append(res.toString());
+            
+            delete conn->cgi_state;
+            conn->cgi_state = NULL;
+            
+            poller.modifyFd(to_kill[i], EPOLLOUT);
+        }
+    }
+}
+
 void MasterServer::run()
 {
-    int fd;
-
     Logger::log(Logger::INFO, "MasterServer iniciado...");
     while (g_running)
     {
         std::vector<PollEvent> events = poller.waitEvents(1000);
-
+        
         if (!g_running)
             break;
-
+        
         for (size_t i = 0; i < events.size(); ++i)
         {
-            fd = events[i].fd;
-
+            int fd = events[i].fd;
+            
             if (events[i].isError())
             {
-                closeConnection(fd);
+                if (cgiFdToClientFd.count(fd))
+                {
+                    int clientFd = cgiFdToClientFd[fd];
+                    finalizeCgi(clientFd);
+                }
+                else
+                    closeConnection(fd);
                 continue;
             }
+            
             if (isListenFd(fd))
             {
                 handleAccept(fd);
                 continue;
             }
+            
+            // Verificar se é FD de CGI
+            if (cgiFdToClientFd.count(fd))
+            {
+                if (events[i].isReadable())
+                    handleCgiRead(fd);
+                if (events[i].isWritable())
+                    handleCgiWrite(fd);
+                continue;
+            }
+            
+            // FD de cliente normal
             if (events[i].isReadable())
                 handleRead(fd);
             if (events[i].isWritable())
                 handleWrite(fd);
         }
+        
         checkTimeouts();
+        checkCgiTimeouts();  // NOVO
         g_sessions.cleanup();
     }
     Logger::log(Logger::WINT, "MasterServer encerrando conexões...");

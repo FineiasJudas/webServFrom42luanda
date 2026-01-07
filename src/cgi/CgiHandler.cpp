@@ -194,6 +194,170 @@ CgiResult CgiHandler::execute(const Request &req,
     (void)loc;
     CgiResult result;
     result.exit_status = -1;
+    result.is_pending = false;
+    result.cgi_state = NULL;
+    
+    // ... (todo o código de validação permanece igual até o fork)
+    // ------------------ SCRIPT EXISTS? ------------------
+    struct stat st;
+    if (stat(script_path.c_str(), &st) != 0)
+    {
+        result.raw_output =
+            "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
+            "CGI script not found: " +
+            script_path + "\n";
+        return result;
+    }
+
+    // ------------------ INTERPRETER ---------------------
+    std::string interpreter;
+    if (cgiConfig.path.empty())
+    {
+        if (cgiConfig.extension == ".php")
+            interpreter = "/usr/bin/php-cgi";
+        else if (cgiConfig.extension == ".py")
+            interpreter = "/usr/bin/python3";
+    }
+    else
+        interpreter = cgiConfig.path;
+
+    Logger::log(Logger::INFO, "CGI Interpreter: " + interpreter);
+
+    if (interpreter.empty())
+    {
+        result.raw_output =
+            "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
+            "CGI interpreter not defined\n";
+        return result;
+    }
+
+    if (access(interpreter.c_str(), X_OK) != 0)
+    {
+        result.raw_output =
+            "Status: 500\r\nContent-Type: text/plain\r\n\r\n"
+            "Interpreter not executable\n";
+        return result;
+    }
+
+    // ------------------ BUILD ENV -----------------------
+    // Instead of strdup (POSIX), keep std::string storage and use c_str() pointers.
+    // In C++98, c_str() returns const char*, so we cast away const for execve.
+    std::vector<std::string> env_storage = buildEnv(req, script_path, config, cgiConfig);
+    std::vector<char *> envp;
+    envp.reserve(env_storage.size() + 1);
+    for (size_t i = 0; i < env_storage.size(); ++i)
+        envp.push_back(const_cast<char *>(env_storage[i].c_str()));
+    envp.push_back(NULL);
+
+    // ------------------ ARGV ----------------------------
+    std::vector<std::string> argv_storage;
+    argv_storage.reserve(2 + req.query.size());
+    argv_storage.push_back(interpreter);
+    argv_storage.push_back(script_path);
+    for (std::map<std::string, std::string>::const_iterator it = req.query.begin();
+         it != req.query.end();
+         ++it)
+    {
+        std::string pair = it->first + "=" + it->second;
+        argv_storage.push_back(pair);
+    }
+
+    std::vector<char *> argv_vec;
+    argv_vec.reserve(argv_storage.size() + 1);
+    for (size_t i = 0; i < argv_storage.size(); ++i)
+        argv_vec.push_back(const_cast<char *>(argv_storage[i].c_str()));
+    argv_vec.push_back(NULL);
+    
+    int stdin_pipe[2];
+    int stdout_pipe[2];
+    
+    if (pipe(stdin_pipe) < 0 || pipe(stdout_pipe) < 0)
+    {
+        result.raw_output = "Status: 500\r\nContent-Type: text/plain\r\n\r\nFailed to create pipes\n";
+        return result;
+    }
+    
+    // Tornar pipes não-bloqueantes ANTES do fork
+    fcntl(stdin_pipe[1], F_SETFL, O_NONBLOCK);
+    fcntl(stdout_pipe[0], F_SETFL, O_NONBLOCK);
+    
+    pid_t pid = fork();
+    if (pid < 0)
+    {
+        close(stdin_pipe[0]);
+        close(stdin_pipe[1]);
+        close(stdout_pipe[0]);
+        close(stdout_pipe[1]);
+        result.raw_output = "Status: 500\r\nContent-Type: text/plain\r\n\r\nFork failed\n";
+        return result;
+    }
+    
+    // CHILD
+    if (pid == 0)
+    {
+        close(stdin_pipe[1]);
+        close(stdout_pipe[0]);
+        
+        dup2(stdin_pipe[0], STDIN_FILENO);
+        dup2(stdout_pipe[1], STDOUT_FILENO);
+        dup2(stdout_pipe[1], STDERR_FILENO);
+        
+        close(stdin_pipe[0]);
+        close(stdout_pipe[1]);
+        
+        execve(interpreter.c_str(), &argv_vec[0], &envp[0]);
+        _exit(127);
+    }
+    
+    // PARENT - NÃO BLOQUEIA!
+    close(stdin_pipe[0]);
+    close(stdout_pipe[1]);
+    
+    // Criar estado CGI
+    CgiState *state = new CgiState();
+    state->pid = pid;
+    state->stdin_fd = stdin_pipe[1];
+    state->stdout_fd = stdout_pipe[0];
+    state->start_time = time(NULL);
+    state->stdin_closed = false;
+    
+    // Tentar escrever o body imediatamente (pode ser parcial)
+    if (!req.body.empty())
+    {
+        ssize_t written = write(state->stdin_fd, req.body.c_str(), req.body.size());
+        if (written == (ssize_t)req.body.size())
+        {
+            close(state->stdin_fd);
+            state->stdin_fd = -1;
+            state->stdin_closed = true;
+        }
+        // Se escreveu parcialmente, o resto será escrito depois
+    }
+    else
+    {
+        close(state->stdin_fd);
+        state->stdin_fd = -1;
+        state->stdin_closed = true;
+    }
+    
+    // Retornar como pendente
+    result.is_pending = true;
+    result.cgi_state = state;
+    
+    Logger::log(Logger::INFO, "CGI iniciado de forma não-bloqueante, PID: " + Utils::toString(pid));
+    
+    return result;
+}
+
+/*CgiResult CgiHandler::execute(const Request &req,
+                              const std::string &script_path,
+                              const ServerConfig &config,
+                              const LocationConfig &loc,
+                              const CgiConfig &cgiConfig)
+{
+    (void)loc;
+    CgiResult result;
+    result.exit_status = -1;
     result.raw_output = "";
 
     // ------------------ SCRIPT EXISTS? ------------------
@@ -397,7 +561,7 @@ CgiResult CgiHandler::execute(const Request &req,
 
     // No manual free required: env_storage and argv_storage hold the buffers.
     return result;
-}
+}*/
 
 Response CgiHandler::parseCgiOutput(const std::string &raw)
 {
@@ -476,31 +640,30 @@ Response CgiHandler::handleCgiRequest(const Request &req,
                                       const LocationConfig &loc,
                                       const CgiConfig &cgiConfig)
 {
-    Response res;
-    //(void) cgiConfig;
-
-    // monta caminho real do script
-
-    //    std::string script_path = loc.root + req.uri.substr(loc.path.size());
+    Response    res;
     std::string script_path = loc.root + "/" + req.path.substr(loc.path.size());
-
-    // passar de alguma forma a extencao
+    
     CgiResult result = CgiHandler::execute(req, script_path, config, loc, cgiConfig);
-
+    
+    // Se está pendente, retornar resposta vazia (será tratado depois)
+    if (result.is_pending)
+    {
+        res.status = 0;  // Sinal especial de "pendente"
+        return res;
+    }
+    
+    // ... (resto do código de tratamento de erro permanece igual)
+    
     if (result.exit_status == 504)
     {
-        /*
-        uma funcao para esses retornos, parecem todos iguas.
-        Reutilizar
-        */
         res.status = 504;
         res.body = "<h1>504 Gateway Timeout (CGI)</h1>";
         res.headers["Content-Type"] = "text/html";
         res.headers["Content-Length"] = Utils::toString(res.body.size());
         return res;
     }
-
-    if (result.exit_status != 0 && result.exit_status != 200 && !result.raw_output.size())
+    
+    if (result.exit_status != 0 && result.exit_status != 200)
     {
         res.status = 500;
         res.body = "<h1>500 CGI Execution Failed</h1>";
@@ -508,6 +671,6 @@ Response CgiHandler::handleCgiRequest(const Request &req,
         res.headers["Content-Type"] = "text/html";
         return res;
     }
-
+    
     return CgiHandler::parseCgiOutput(result.raw_output);
 }

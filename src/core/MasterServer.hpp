@@ -21,6 +21,7 @@ class   MasterServer
         Poller  poller;
         std::map<int, ServerConfig *> listenFdToServers;
         std::map<int, Connection *> connections;
+        std::map<int, int> cgiFdToClientFd;  // fd do CGI -> fd do cliente
         std::vector<int>    ports;
 
         int     read_timeout;
@@ -39,8 +40,16 @@ class   MasterServer
         ServerConfig    *selectServerForRequest(const Request &req, int listenFd);
 
         void    checkTimeouts();
+        void    checkCgiTimeouts();
         bool    isListenFd(int fd) const;
         int     parsePortFromListenString(const std::string &s) const;
+    
+    // No MasterServer.hpp
+    private:
+        
+        void handleCgiRead(int cgiFd);
+        void handleCgiWrite(int cgiFd);
+        void finalizeCgi(int clientFd);
 };
 
 #endif

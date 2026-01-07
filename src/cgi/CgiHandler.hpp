@@ -8,11 +8,17 @@
 #include "../config/Config.hpp"
 #include "../../includes/Headers.hpp"
 #include "../http/Response.hpp"
+#include "../core/Connection.hpp"
 
-struct  CgiResult
+// No CgiHandler.hpp
+struct CgiResult
 {
     int exit_status;
     std::string raw_output;
+    bool is_pending;      // NOVO
+    CgiState *cgi_state;  // NOVO
+    
+    CgiResult() : exit_status(-1), is_pending(false), cgi_state(NULL) {}
 };
 
 class   CgiHandler

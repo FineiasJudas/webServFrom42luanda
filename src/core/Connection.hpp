@@ -6,6 +6,19 @@
 #include "Buffer.hpp"
 #include "../config/Config.hpp"
 
+struct CgiState
+{
+    pid_t pid;
+    int stdout_fd;
+    int stdin_fd;
+    std::string output;
+    time_t start_time;
+    bool stdin_closed;
+    
+    CgiState() : pid(-1), stdout_fd(-1), stdin_fd(-1), 
+                 start_time(0), stdin_closed(false) {}
+};
+
 class Connection
 {
     private:
@@ -22,6 +35,7 @@ class Connection
         bool    waiting_for_write;
         time_t  write_start_time;
         bool    is_rejeting;
+        CgiState *cgi_state;
 
     public:
         Connection(int fd);
