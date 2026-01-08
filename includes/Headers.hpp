@@ -25,7 +25,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define MAX_EVENTS 64
+#define MAX_EVENTS 128
 
 enum CgiType
 {

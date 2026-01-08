@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <string>
 
-static std::string trim(const std::string &s)
+static std::string  trim(const std::string &s)
 {
     size_t a = s.find_first_not_of(" \t\r\n");
 
@@ -16,7 +16,7 @@ static std::string trim(const std::string &s)
     return s.substr(a, b - a + 1);
 }
 
-bool HttpParser::hasCompleteRequest(const Buffer &buffer)
+bool    HttpParser::hasCompleteRequest(const Buffer &buffer)
 {
     std::string data = buffer.toString();
 
@@ -74,7 +74,7 @@ std::string HttpParser::urlDecode(const std::string &str)
     return result;
 }
 
-void HttpParser::parseQueryParams(Request &req)
+void    HttpParser::parseQueryParams(Request &req)
 {
     size_t pos = req.uri.find('?');
     std::string temp_query;
@@ -113,7 +113,7 @@ void HttpParser::parseQueryParams(Request &req)
     }
 }
 
-bool HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
+bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
 {
     std::string data = buffer.toString();
     size_t header_end = data.find("\r\n\r\n");

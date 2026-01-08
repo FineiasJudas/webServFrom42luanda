@@ -319,14 +319,10 @@ void    MasterServer::handleRead(int clientFd)
                 Utils::toString(clientFd) + ", buffer de entrada tem " +
                 Utils::toString(conn->getInputBuffer().size()) + " bytes");
 
-    if (n == 0)
+    if (n <= 0)
     {
         closeConnection(clientFd);
         return;
-    }
-    if (n < 0)
-    {
-        return ;
     }
 
     if (conn->getInputBuffer().size() > max_body)
@@ -778,10 +774,10 @@ void    MasterServer::run()
     Logger::log(Logger::INFO, "MasterServer iniciado...");
     while (g_running)
     {
-        std::vector<PollEvent> events = poller.waitEvents(1000);
+        std::vector<PollEvent> events = poller.waitEvents(100);
         
         if (!g_running)
-            break;
+            break ;
         
         for (size_t i = 0; i < events.size(); ++i)
         {
