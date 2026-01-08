@@ -238,7 +238,7 @@ static std::string makeRealPath(const std::string &uri,
     return root + suffix;
 }
 
-Response Router::route(const Request &req, const ServerConfig &config)
+Response    Router::route(const Request &req, const ServerConfig &config, Connection *conn)
 {
     Response r;
     Request rq = req;
@@ -295,7 +295,7 @@ Response Router::route(const Request &req, const ServerConfig &config)
         for (size_t i = 0; i < loc.cgi.size(); i++)
         {
             if (loc.cgi[i].extension == ext)
-                return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i]);
+                return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i], conn);
         }
 
         return notAloweMethodResponse(config);
@@ -305,7 +305,7 @@ Response Router::route(const Request &req, const ServerConfig &config)
     for (size_t i = 0; i < loc.cgi.size(); i++)
     {
         if (loc.cgi[i].extension == ext)
-            return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i]);
+            return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i], conn);
     }
 
     // 3️⃣ GET estático

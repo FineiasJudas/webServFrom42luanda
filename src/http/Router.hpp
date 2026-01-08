@@ -5,11 +5,12 @@
 #include "../config/Config.hpp"
 #include "Request.hpp"
 #include "Response.hpp"
+#include "../core/Connection.hpp"
 
 class   Router
 {
     public:
-        static Response route(const Request &req, const ServerConfig &config);
+        static Response route(const Request &req, const ServerConfig &config, Connection *conn);
 
     private:
         static bool handleSession(const Request &req, Response &res);

@@ -34,8 +34,9 @@ class   CgiHandler
         static Response handleCgiRequest(const Request &req,
                                   const ServerConfig &config,
                                   const LocationConfig &loc,
-                                  const CgiConfig &cgiConfig);
+                                  const CgiConfig &cgiConfig, Connection *conn);
         static Response parseCgiOutput(const std::string &raw);
+        static CgiState* getCgiStateForConnection();
 };
 
 #endif

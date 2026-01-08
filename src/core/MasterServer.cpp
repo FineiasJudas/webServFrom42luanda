@@ -290,16 +290,16 @@ void MasterServer::handleRead(int clientFd)
 }
 */
 
-void MasterServer::handleRead(int clientFd)
+void    MasterServer::handleRead(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
     if (it == connections.end())
-        return;
+        return ;
 
     Connection *conn = it->second;
 
     if (conn->shouldCloseAfterSend())
-        return;
+        return ;
 
     size_t max_body = 1024 * 1024;
     std::map<int, ServerConfig *>::const_iterator vec =
@@ -319,12 +319,14 @@ void MasterServer::handleRead(int clientFd)
                 Utils::toString(clientFd) + ", buffer de entrada tem " +
                 Utils::toString(conn->getInputBuffer().size()) + " bytes");
 
-    if (n == 0) {
+    if (n == 0)
+    {
         closeConnection(clientFd);
         return;
     }
-    if (n < 0) {
-        return;
+    if (n < 0)
+    {
+        return ;
     }
 
     if (conn->getInputBuffer().size() > max_body)
@@ -356,7 +358,7 @@ void MasterServer::handleRead(int clientFd)
     {
         Request req;
         if (!HttpParser::parseRequest(conn->getInputBuffer(), req, max_body))
-            break;
+            break ;
 
         ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
         conn->setServer(sc);
@@ -376,7 +378,7 @@ void MasterServer::handleRead(int clientFd)
                     req.method + " " + req.uri + " " + req.version +
                     " recebido na FD " + Utils::toString(clientFd));
 
-        Response res = Router::route(req, *sc);
+        Response res = Router::route(req, *sc, conn);
 
         // NOVO: Verificar se é CGI pendente
         if (res.status == 0 && conn->cgi_state)
@@ -421,11 +423,11 @@ void MasterServer::handleRead(int clientFd)
         poller.modifyFd(clientFd, 0);  // Sem eventos até CGI terminar
 }
 
-void MasterServer::handleWrite(int clientFd)
+void    MasterServer::handleWrite(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
     if (it == connections.end())
-        return;
+        return ;
 
     Connection *conn = it->second;
     Buffer &out = conn->getOutputBuffer();
@@ -434,7 +436,7 @@ void MasterServer::handleWrite(int clientFd)
     {
         conn->waiting_for_write = false;
         poller.modifyFd(clientFd, EPOLLIN);
-        return;
+        return ;
     }
 
     if (!conn->waiting_for_write)
@@ -446,22 +448,14 @@ void MasterServer::handleWrite(int clientFd)
     ssize_t sent = conn->writeToFd(out.data(), out.size());
 
     if (sent > 0)
-    {
         out.consume(sent);
-    }
     else if (sent == 0)
-    {
-        return;
-    }
+        return ;
     else
-    {
-        return;
-    }
+        return ;
 
     if (conn->shouldCloseAfterSend() && out.empty())
-    {
         return closeConnection(clientFd);
-    }
 
     if (out.empty()) // terminou de escrever
     {
@@ -469,35 +463,35 @@ void MasterServer::handleWrite(int clientFd)
         poller.modifyFd(clientFd, EPOLLIN);
     }
     else
-    {
-        poller.modifyFd(clientFd, EPOLLOUT);
-    } // continuar a escutar escrita
+        poller.modifyFd(clientFd, EPOLLOUT); // continuar a escutar escrita
 }
 
 // Implementação
-void MasterServer::handleCgiRead(int cgiFd)
+void    MasterServer::handleCgiRead(int cgiFd)
 {
     std::map<int, int>::iterator it = cgiFdToClientFd.find(cgiFd);
-    if (it == cgiFdToClientFd.end())  // CORRIGIDO: era connections.end()
-        return;
+    if (it == cgiFdToClientFd.end())
+        return ;
     
     int clientFd = it->second;
     
     std::map<int, Connection *>::iterator conn_it = connections.find(clientFd);
     if (conn_it == connections.end())
-        return;
+        return ;
     
     Connection *conn = conn_it->second;
     if (!conn || !conn->cgi_state)
-        return;
+        return ;
     
-    char buffer[4096];
+    char    buffer[4096];
     ssize_t n = read(cgiFd, buffer, sizeof(buffer));
     
     if (n > 0)
     {
         conn->cgi_state->output.append(buffer, n);
-        Logger::log(Logger::INFO, "CGI: Lidos " + Utils::toString(n) + " bytes do stdout");
+        Logger::log(Logger::INFO, "CGI: Lidos " + Utils::toString(n) + 
+                   " bytes do stdout (total: " + 
+                   Utils::toString(conn->cgi_state->output.size()) + ")");
     }
     else if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK))
     {
@@ -514,38 +508,95 @@ void MasterServer::handleCgiRead(int cgiFd)
         pid_t result = waitpid(conn->cgi_state->pid, &status, WNOHANG);
         if (result > 0)
         {
-            Logger::log(Logger::INFO, "CGI: Processo terminou, finalizando");
+            // Processo terminou
+            int exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+            Logger::log(Logger::INFO, "CGI: Processo terminou com código " + 
+                       Utils::toString(exit_code));
             finalizeCgi(clientFd);
         }
         else if (result == 0)
         {
-            Logger::log(Logger::INFO, "CGI: Processo ainda ativo, aguardando...");
-            // Processo ainda está a correr, aguardar mais
-            // O timeout vai apanhá-lo se demorar muito
+            Logger::log(Logger::INFO, "CGI: Processo ainda ativo após EOF no stdout");
+            // Isso é estranho, mas pode acontecer
+            // Dar um tempo e depois finalizar
         }
     }
 }
 
-void MasterServer::handleCgiWrite(int cgiFd)
+void    MasterServer::handleCgiWrite(int cgiFd)
 {
     std::map<int, int>::iterator it = cgiFdToClientFd.find(cgiFd);
     if (it == cgiFdToClientFd.end())
         return;
     
     int clientFd = it->second;
-    Connection *conn = connections[clientFd];
+    
+    std::map<int, Connection *>::iterator conn_it = connections.find(clientFd);
+    if (conn_it == connections.end())
+        return;
+    
+    Connection *conn = conn_it->second;
     if (!conn || !conn->cgi_state || conn->cgi_state->stdin_closed)
         return;
     
-    // Escrever body restante (se houver)
-    // Por agora, fechar stdin
-    poller.removeFd(cgiFd);
-    close(cgiFd);
-    conn->cgi_state->stdin_fd = -1;
-    conn->cgi_state->stdin_closed = true;
+    CgiState *state = conn->cgi_state;
+    
+    // Calcular quanto falta escrever
+    size_t remaining = state->pending_write.size() - state->write_offset;
+    if (remaining == 0)
+    {
+        // Já escrevemos tudo, fechar stdin
+        Logger::log(Logger::INFO, "CGI: Tudo escrito, fechando stdin");
+        poller.removeFd(cgiFd);
+        close(cgiFd);
+        cgiFdToClientFd.erase(cgiFd);
+        state->stdin_fd = -1;
+        state->stdin_closed = true;
+        return;
+    }
+    
+    // Escrever o que falta
+    const char *data = state->pending_write.c_str() + state->write_offset;
+    ssize_t written = write(cgiFd, data, remaining);
+    
+    if (written > 0)
+    {
+        state->write_offset += written;
+        Logger::log(Logger::INFO, "CGI: Escritos mais " + Utils::toString(written) + 
+                   " bytes, total: " + Utils::toString(state->write_offset) + 
+                   " de " + Utils::toString(state->pending_write.size()));
+        
+        // Verificar se terminamos
+        if (state->write_offset >= state->pending_write.size())
+        {
+            Logger::log(Logger::INFO, "CGI: Escrita completa, fechando stdin");
+            poller.removeFd(cgiFd);
+            close(cgiFd);
+            cgiFdToClientFd.erase(cgiFd);
+            state->stdin_fd = -1;
+            state->stdin_closed = true;
+        }
+    }
+    else if (written < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            // Pipe cheio, tentar depois
+            Logger::log(Logger::WARN, "CGI: Pipe stdin cheio, aguardando...");
+        else
+        {
+            // Erro fatal
+            Logger::log(Logger::ERROR, "CGI: Erro ao escrever stdin: " + 
+                       std::string(strerror(errno)));
+            poller.removeFd(cgiFd);
+            close(cgiFd);
+            cgiFdToClientFd.erase(cgiFd);
+            state->stdin_fd = -1;
+            state->stdin_closed = true;
+        }
+    }
 }
 
-void MasterServer::finalizeCgi(int clientFd)
+void    MasterServer::finalizeCgi(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
     if (it == connections.end())
@@ -610,12 +661,12 @@ void MasterServer::finalizeCgi(int clientFd)
     poller.modifyFd(clientFd, EPOLLOUT);
 }
 
-void MasterServer::closeConnection(int clientFd)
+void    MasterServer::closeConnection(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
 
     if (it == connections.end())
-        return;
+        return ;
 
     poller.removeFd(clientFd);
     ::close(clientFd);
@@ -624,10 +675,10 @@ void MasterServer::closeConnection(int clientFd)
     Logger::log(Logger::WARN, "Conexão fechada FD " + Utils::toString(clientFd));
 }
 
-void MasterServer::checkTimeouts()
+void    MasterServer::checkTimeouts()
 {
-    time_t idle;
-    time_t now = time(NULL);
+    time_t  idle;
+    time_t  now = time(NULL);
 
     std::vector<int> toClose;
 
@@ -669,15 +720,16 @@ void    MasterServer::checkCgiTimeouts()
     {
         Connection *conn = it->second;
         if (!conn->cgi_state)
-            continue;
+            continue ;
         
         ServerConfig *sc = conn->getServer();
         if (!sc || sc->cgi_timeout <= 0)
-            continue;
+            continue ;
         
         if ((now - conn->cgi_state->start_time) > sc->cgi_timeout)
         {
-            Logger::log(Logger::WARN, "CGI timeout na FD " + Utils::toString(it->first));
+            Logger::log(Logger::WARN, "CGI timeout na FD " + Utils::toString(it->first) +
+                       " (PID " + Utils::toString(conn->cgi_state->pid) + ")");
             to_kill.push_back(it->first);
         }
     }
@@ -687,9 +739,25 @@ void    MasterServer::checkCgiTimeouts()
         Connection *conn = connections[to_kill[i]];
         if (conn->cgi_state)
         {
+            // Limpar FDs do epoll
+            if (conn->cgi_state->stdin_fd != -1)
+            {
+                poller.removeFd(conn->cgi_state->stdin_fd);
+                close(conn->cgi_state->stdin_fd);
+                cgiFdToClientFd.erase(conn->cgi_state->stdin_fd);
+            }
+            if (conn->cgi_state->stdout_fd != -1)
+            {
+                poller.removeFd(conn->cgi_state->stdout_fd);
+                close(conn->cgi_state->stdout_fd);
+                cgiFdToClientFd.erase(conn->cgi_state->stdout_fd);
+            }
+            
+            // Matar processo
             kill(conn->cgi_state->pid, SIGKILL);
             waitpid(conn->cgi_state->pid, NULL, 0);
             
+            // Enviar resposta de timeout
             Response res;
             res.status = 504;
             res.body = "<h1>504 CGI Timeout</h1>";
@@ -705,7 +773,7 @@ void    MasterServer::checkCgiTimeouts()
     }
 }
 
-void MasterServer::run()
+void    MasterServer::run()
 {
     Logger::log(Logger::INFO, "MasterServer iniciado...");
     while (g_running)
@@ -728,13 +796,13 @@ void MasterServer::run()
                 }
                 else
                     closeConnection(fd);
-                continue;
+                continue ;
             }
             
             if (isListenFd(fd))
             {
                 handleAccept(fd);
-                continue;
+                continue ;
             }
             
             // Verificar se é FD de CGI
@@ -744,7 +812,7 @@ void MasterServer::run()
                     handleCgiRead(fd);
                 if (events[i].isWritable())
                     handleCgiWrite(fd);
-                continue;
+                continue ;
             }
             
             // FD de cliente normal

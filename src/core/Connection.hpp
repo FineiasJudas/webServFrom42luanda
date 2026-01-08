@@ -6,6 +6,7 @@
 #include "Buffer.hpp"
 #include "../config/Config.hpp"
 
+// No Connection.hpp
 struct CgiState
 {
     pid_t pid;
@@ -15,8 +16,12 @@ struct CgiState
     time_t start_time;
     bool stdin_closed;
     
+    // NOVO: para escrita não-bloqueante
+    std::string pending_write;  // O que ainda falta escrever no stdin
+    size_t write_offset;        // Quanto já escrevemos
+    
     CgiState() : pid(-1), stdout_fd(-1), stdin_fd(-1), 
-                 start_time(0), stdin_closed(false) {}
+                 start_time(0), stdin_closed(false), write_offset(0) {}
 };
 
 class Connection

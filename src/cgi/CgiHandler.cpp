@@ -185,7 +185,7 @@ static std::vector<std::string> buildEnv(const Request &req,
 }
     */
 
-CgiResult CgiHandler::execute(const Request &req,
+CgiResult   CgiHandler::execute(const Request &req,
                               const std::string &script_path,
                               const ServerConfig &config,
                               const LocationConfig &loc,
@@ -320,31 +320,54 @@ CgiResult CgiHandler::execute(const Request &req,
     state->stdout_fd = stdout_pipe[0];
     state->start_time = time(NULL);
     state->stdin_closed = false;
+    state->write_offset = 0;
     
-    // Tentar escrever o body imediatamente (pode ser parcial)
+    // CORRIGIDO: Guardar body para escrever depois
     if (!req.body.empty())
     {
-        ssize_t written = write(state->stdin_fd, req.body.c_str(), req.body.size());
-        if (written == (ssize_t)req.body.size())
+        state->pending_write = req.body;
+        
+        // Tentar escrever o máximo possível imediatamente
+        ssize_t written = write(state->stdin_fd, 
+                               state->pending_write.c_str(), 
+                               state->pending_write.size());
+        
+        if (written > 0)
+        {
+            state->write_offset = written;
+            Logger::log(Logger::INFO, "CGI: Escritos " + Utils::toString(written) + 
+                       " de " + Utils::toString(state->pending_write.size()) + " bytes no stdin");
+        }
+        else if (written < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
+        {
+            Logger::log(Logger::ERROR, "CGI: Erro ao escrever no stdin: " + 
+                       std::string(strerror(errno)));
+        }
+        
+        // Verificar se escrevemos tudo
+        if (state->write_offset >= state->pending_write.size())
         {
             close(state->stdin_fd);
             state->stdin_fd = -1;
             state->stdin_closed = true;
+            Logger::log(Logger::INFO, "CGI: stdin fechado (tudo escrito de imediato)");
         }
-        // Se escreveu parcialmente, o resto será escrito depois
     }
     else
     {
+        // Sem body, fechar stdin imediatamente
         close(state->stdin_fd);
         state->stdin_fd = -1;
         state->stdin_closed = true;
+        Logger::log(Logger::INFO, "CGI: stdin fechado (sem body)");
     }
     
     // Retornar como pendente
     result.is_pending = true;
     result.cgi_state = state;
     
-    Logger::log(Logger::INFO, "CGI iniciado de forma não-bloqueante, PID: " + Utils::toString(pid));
+    Logger::log(Logger::INFO, "CGI iniciado de forma não-bloqueante, PID: " + 
+               Utils::toString(pid));
     
     return result;
 }
@@ -563,7 +586,7 @@ CgiResult CgiHandler::execute(const Request &req,
     return result;
 }*/
 
-Response CgiHandler::parseCgiOutput(const std::string &raw)
+Response    CgiHandler::parseCgiOutput(const std::string &raw)
 {
     Response res;
 
@@ -638,13 +661,14 @@ Response CgiHandler::parseCgiOutput(const std::string &raw)
 Response CgiHandler::handleCgiRequest(const Request &req,
                                       const ServerConfig &config,
                                       const LocationConfig &loc,
-                                      const CgiConfig &cgiConfig)
+                                      const CgiConfig &cgiConfig, Connection *conn)
 {
     Response    res;
     std::string script_path = loc.root + "/" + req.path.substr(loc.path.size());
     
     CgiResult result = CgiHandler::execute(req, script_path, config, loc, cgiConfig);
     
+    conn->cgi_state = result.cgi_state;
     // Se está pendente, retornar resposta vazia (será tratado depois)
     if (result.is_pending)
     {

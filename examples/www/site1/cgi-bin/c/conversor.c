@@ -64,7 +64,8 @@ int main(int argc, char *argv[]) {
     char *value = NULL;
     char *unit = NULL;
 
-    for (int i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++)
+    {
         if (strncmp(argv[i], "value=", 6) == 0) {
             value = get_param_value(argv[i]);
         }
