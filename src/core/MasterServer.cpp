@@ -13,9 +13,9 @@ volatile sig_atomic_t g_running = 1;
 
 MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
 {
-    this->read_timeout = 15;
-    this->write_timeout = 15;
-    this->keepalive_timeout = 20;
+    this->read_timeout = 30;
+    this->write_timeout = 30;
+    this->keepalive_timeout = 60;
 
     createListenSockets(servers);
     if (listenFdToServers.empty())
