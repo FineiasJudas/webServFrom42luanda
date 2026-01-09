@@ -1,6 +1,6 @@
 <?php
 
-$MAX_SIZE = 5 * 1024 * 1024;
+$MAX_SIZE = 10 * 1024 * 1024;
 
 /* ============================
    Detectar formato de resposta
@@ -8,7 +8,8 @@ $MAX_SIZE = 5 * 1024 * 1024;
 $format = $_GET['format'] ?? '';
 $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
 
-if ($format === 'plain') {
+if ($format === 'plain')
+{
     $responseType = 'text/plain';
 } else if (strpos($accept, 'text/html') !== false) {
     $responseType = 'text/html';
@@ -55,11 +56,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST')
 if (!isset($_FILES['file']))
     respond(400, 'Nenhum arquivo enviado');
 
-if ($_FILES['file']['error'] !== UPLOAD_ERR_OK)
-    respond(400, 'Erro no upload');
+if ($_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+    respond(400, 'Erro no upload: ' . $_FILES['file']['error']);
+}
 
 if ($_FILES['file']['size'] > $MAX_SIZE)
-    respond(413, 'Arquivo excede o limite de 5MB');
+    respond(413, 'Arquivo excede o limite de 10MB');
 
 /* ============================
    Upload

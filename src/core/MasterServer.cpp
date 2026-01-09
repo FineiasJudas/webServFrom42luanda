@@ -51,7 +51,7 @@ int MasterServer::parsePortFromListenString(const std::string &s) const
     return std::atoi(portstr.c_str());
 }
 
-void MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
+void    MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
 {
     int fd;
     int port;
@@ -65,15 +65,15 @@ void MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
             port = parsePortFromListenString(sc.listen[0]);
             if (port < KW::MIN_VALUE_PORT || port > KW::MAX_VALUE_PORT)
             {
-                std::ostringstream ss;
+                std::ostringstream  ss;
                 ss << "Porta inválida: Uma porta precisa ser um número entre " << KW::MIN_VALUE_PORT << " e " << KW::MAX_VALUE_PORT;
                 Logger::log(Logger::ERROR, ss.str());
 
-                std::ostringstream ss2;
+                std::ostringstream  ss2;
                 ss2 << "Porta inválida: porta inserida: " << sc.listen[0];
                 Logger::log(Logger::ERROR, ss2.str());
 
-                continue;
+                continue ;
             }
             if (std::find(ports.begin(), ports.end(), port) == ports.end())
             {
@@ -90,7 +90,7 @@ void MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
             else
             {
                 Logger::log(Logger::ERROR, "Porta " + Utils::toString(port) + " já ocupada por um Server");
-                continue;
+                continue ;
             }
         }
     }
@@ -117,7 +117,7 @@ int MasterServer::createListenSocketForPort(int port)
         flags = 0;
     fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-    struct sockaddr_in addr;
+    struct sockaddr_in  addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
     addr.sin_port = htons(port);
@@ -139,12 +139,12 @@ int MasterServer::createListenSocketForPort(int port)
     return (fd);
 }
 
-bool MasterServer::isListenFd(int fd) const
+bool    MasterServer::isListenFd(int fd) const
 {
     return (listenFdToServers.count(fd) > 0);
 }
 
-ServerConfig *MasterServer::selectServerForRequest(const Request &req, int listenFd)
+ServerConfig    *MasterServer::selectServerForRequest(const Request &req, int listenFd)
 {
     (void)req;
     std::map<int, ServerConfig *>::const_iterator it = listenFdToServers.find(listenFd);
@@ -157,7 +157,7 @@ ServerConfig *MasterServer::selectServerForRequest(const Request &req, int liste
     return (defaultServer);
 }
 
-void MasterServer::handleAccept(int listenFd)
+void    MasterServer::handleAccept(int listenFd)
 {
     int flags;
     int clientFd;
@@ -183,113 +183,6 @@ void MasterServer::handleAccept(int listenFd)
     Logger::log(Logger::NEW, "Nova conexão aceita FD " + Utils::toString(clientFd));
 }
 
-/*
-subject página 09
-
-1 • Você nunca deve fazer uma operação de leitura ou escrita sem passar por poll()
-(ou equivalente).
-
-2 • Verificar o valor de errno para ajustar o comportamento do servidor é estritamente
-proibido após realizar uma operação de leitura ou escrita.
-
-3 • Você não é obrigado a usar poll() (ou equivalente) antes de read() para recuperar
-seu arquivo de configuração.
-
-===============  parece que já estamos a comprir com apenas o pontos acima ===============
-*/
-/*
-void MasterServer::handleRead(int clientFd)
-{
-    std::map<int, Connection *>::iterator it = connections.find(clientFd);
-    if (it == connections.end())
-        return;
-
-    size_t max_body = 1024 * 1024; // 1 MB por defeito. Este valor deve estar no header como macro
-    Connection *conn = it->second;
-    std::map<int, ServerConfig *>::const_iterator vec = listenFdToServers.find(conn->getListenFd());
-    if (vec != listenFdToServers.end() && vec->second)
-        max_body = vec->second->max_body_size;
-
-    // Ler UMA vez (epoll LT)
-    ssize_t n = conn->readFromFd();
-    if (conn->getInputBuffer().size() > max_body)
-    {
-        Response res;
-        res.status = 413;
-        res.body =
-            "<html><body>"
-            "<h1>413 Payload Too Large</h1>"
-            "<a href=\"/\" target=\"_top\">Voltar</a>"
-            "</body></html>";
-
-        res.headers["Content-Type"] = "text/html";
-        res.headers["Content-Length"] = Utils::toString(res.body.size());
-        res.headers["Connection"] = "close";
-
-        conn->getOutputBuffer().append(res.toString());
-
-        // muda para escrita
-        poller.modifyFd(clientFd, EPOLLOUT | EPOLLET);
-
-        // marca para fechar depois
-        conn->setCloseAfterSend(true);
-
-        Logger::log(Logger::NEW,
-                    "Status 413 Payload Too Large");
-
-        return;
-    }
-
-    if (n <= 0)
-    {closeAfterSend
-        closeConnection(clientFd);
-        return;
-    }// nada para ler agora idiota e nem precisas diferenciar erros
-
-    // Processar requisições completas
-    int processed = 0;
-    while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
-    {
-        Request req;
-
-        bool ok = HttpParser::parseRequest(conn->getInputBuffer(), req, max_body);
-        if (!ok)
-            break;
-        // determinar servidor real para este pedido
-        ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
-        conn->setServer(sc);
-
-        std::string connHdr = "";
-        if (req.headers.count("Connection"))
-            connHdr = req.headers.at("Connection");
-        if (connHdr == "close")
-            conn->setCloseAfterSend(true);
-        else if (req.version == "HTTP/1.0" && connHdr != "keep-alive")
-            conn->setCloseAfterSend(true);
-        else
-            conn->setCloseAfterSend(false);
-
-        Logger::log(Logger::INFO, req.method + " " + req.uri +
-                                      " " + req.version + " recebido na FD " + Utils::toString(clientFd));
-
-        // Roteamento
-        Response res = Router::route(req, *sc);
-
-        res.status >= 200 && res.status <= 300   ? Logger::log(Logger::DEBUG, "Status " + Utils::toString(res.status) +
-                                                                                  " " + Response::reasonPhrase(res.status))
-        : res.status >= 400 && res.status <= 500 ? Logger::log(Logger::ERROR, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status))
-                                                 : Logger::log(Logger::WINT, "Status " + Utils::toString(res.status) + " " + Response::reasonPhrase(res.status));
-
-        conn->getOutputBuffer().append(res.toString());
-        conn->getInputBuffer().clear();
-        processed++;
-    }
-
-    if (processed > 0)
-        poller.modifyFd(clientFd, EPOLLOUT);
-}
-*/
-
 void    MasterServer::handleRead(int clientFd)
 {
     std::map<int, Connection *>::iterator it = connections.find(clientFd);
@@ -311,6 +204,7 @@ void    MasterServer::handleRead(int clientFd)
     {
         Logger::log(Logger::WARN,
                 "Conexao do FD" + Utils::toString(clientFd) + " rejeitada!");
+        return ;
     }
     
     ssize_t n = conn->readFromFd();
@@ -322,10 +216,10 @@ void    MasterServer::handleRead(int clientFd)
     if (n <= 0)
     {
         closeConnection(clientFd);
-        return;
+        return ;
     }
 
-    if (conn->getInputBuffer().size() > max_body)
+    if (conn->getInputBuffer().size() > (max_body + 8192)) // margem para headers
     {
         Response res;
         res.status = 413;
@@ -344,12 +238,11 @@ void    MasterServer::handleRead(int clientFd)
         
         Logger::log(Logger::NEW, "Status 413 Payload Too Large");
         conn->is_rejeting = true;
-        return;
+        return ;
     }
 
     int processed = 0;
-    bool has_pending_cgi = false;  // NOVO
-
+    bool has_pending_cgi = false;
     while (HttpParser::hasCompleteRequest(conn->getInputBuffer()))
     {
         Request req;

@@ -2,6 +2,7 @@
 #include "./../utils/keywords.hpp"
 #include "./../utils/Utils.hpp"
 #include "ConfigParser.hpp"
+#include "./../utils/Logger.hpp"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -150,7 +151,10 @@ void    ConfigParser::parseServer(std::ifstream &file, ServerConfig &cfg)
         else if (key == "max_body_size")
         {
             iss >> value;
-            cfg.max_body_size = std::atoi(value.c_str());
+            std::string tmp = value.substr(0, value.size() - 2);
+            cfg.max_body_size = std::atoi(tmp.c_str()) * (1024 * 1024);
+            if (tmp[0] == '-')
+                Logger::log(Logger::WARN, "max_body_size negativo, o servidor vai definir um tamanho máximo interno!");
         }
         else if (key == "auto_index")
         {

@@ -46,7 +46,7 @@ struct  ServerConfig
     int     cgi_timeout;
 
     ServerConfig()
-        : max_body_size(1024 * 1024),
+        : max_body_size(1 * (1024 * 1024)),
           root("./examples/www/site1"),
           auto_index_set(false),
           auto_index(false),

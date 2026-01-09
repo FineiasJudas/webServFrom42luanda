@@ -21,14 +21,13 @@ class   MasterServer
         Poller  poller;
         std::map<int, ServerConfig *> listenFdToServers;
         std::map<int, Connection *> connections;
-        std::map<int, int> cgiFdToClientFd;  // fd do CGI -> fd do cliente
+        std::map<int, int> cgiFdToClientFd;
         std::vector<int>    ports;
 
         int     read_timeout;
         int     write_timeout;
         int     keepalive_timeout;
 
-    private:
         void    createListenSockets(const std::vector<ServerConfig> &servers);
         int     createListenSocketForPort(int port);
 
@@ -44,12 +43,9 @@ class   MasterServer
         bool    isListenFd(int fd) const;
         int     parsePortFromListenString(const std::string &s) const;
     
-    // No MasterServer.hpp
-    private:
-        
-        void handleCgiRead(int cgiFd);
-        void handleCgiWrite(int cgiFd);
-        void finalizeCgi(int clientFd);
+        void    handleCgiRead(int cgiFd);
+        void    handleCgiWrite(int cgiFd);
+        void    finalizeCgi(int clientFd);
 };
 
 #endif

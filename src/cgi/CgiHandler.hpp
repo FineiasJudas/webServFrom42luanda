@@ -10,13 +10,12 @@
 #include "../http/Response.hpp"
 #include "../core/Connection.hpp"
 
-// No CgiHandler.hpp
 struct CgiResult
 {
     int exit_status;
     std::string raw_output;
-    bool is_pending;      // NOVO
-    CgiState *cgi_state;  // NOVO
+    bool is_pending;
+    CgiState *cgi_state;
     
     CgiResult() : exit_status(-1), is_pending(false), cgi_state(NULL) {}
 };
@@ -36,7 +35,7 @@ class   CgiHandler
                                   const LocationConfig &loc,
                                   const CgiConfig &cgiConfig, Connection *conn);
         static Response parseCgiOutput(const std::string &raw);
-        static CgiState* getCgiStateForConnection();
+        static CgiState *getCgiStateForConnection();
 };
 
 #endif
