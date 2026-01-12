@@ -225,8 +225,6 @@ bool    Router::handleLogin(const Request &req, Response &res)
         }
     }
 
-    std::cout << "Sent token: " << sent_token << ", Cookie token: " << csrf_cookie << std::endl;
-
     if (sent_token.find(csrf_cookie) == std::string::npos)
     {
         res.status = 403;
