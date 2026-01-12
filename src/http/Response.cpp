@@ -5,23 +5,23 @@
 #include "Request.hpp"
 #include <dirent.h>
 
-bool fileExists(const std::string &path)
+bool    fileExists(const std::string &path)
 {
     struct stat s;
 
     return (stat(path.c_str(), &s) == 0 && S_ISREG(s.st_mode));
 }
 
-bool dirExists(const std::string &path)
+bool    dirExists(const std::string &path)
 {
     struct stat s;
 
     return (stat(path.c_str(), &s) == 0 && S_ISDIR(s.st_mode));
 }
 
-std::string  readFile(const std::string &path)
+std::string readFile(const std::string &path)
 {
-    std::ifstream f(path.c_str(), std::ios::in | std::ios::binary);
+    std::ifstream   f(path.c_str(), std::ios::in | std::ios::binary);
     if (!f.is_open())
         return (std::string());
 
@@ -39,7 +39,7 @@ static bool getAutoIndex(const ServerConfig &server,
     if (server.auto_index_set)
         return server.auto_index;
 
-    return false; // default nginx
+    return false;
 }
 
 
@@ -146,6 +146,13 @@ static Response notFoundResponse(const ServerConfig &config)
             return (res);
         }
     }
+    else
+    {
+        res.status = 404;
+        res.body = "<h1>404 Not Found</h1><a href=\"/\">Voltar</a>";
+        res.headers["Content-Type"] = "text/html";
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
+    }
     return res;
 }
 
@@ -167,6 +174,13 @@ Response    forbiddenPageResponse(const ServerConfig &config)
             res.headers["Content-Length"] = Utils::toString(res.body.size());
             return (res);
         }
+    }
+    else
+    {
+        res.status = 403;
+        res.body = "<h1>403 Forbidden</h1><a href=\"/\">Voltar</a>";
+        res.headers["Content-Type"] = "text/html";
+        res.headers["Content-Length"] = Utils::toString(res.body.size());
     }
     return res;
 }
@@ -229,7 +243,6 @@ Response    methodGet(const ServerConfig &config,
         path[p] = ' ';
     }
     
-    // 1. Se existe um arquivo exatamente no path → retornar arquivo
     if (fileExists(path))
     {
         res.body = readFile(path);
@@ -239,12 +252,10 @@ Response    methodGet(const ServerConfig &config,
         return res;
     }
 
-    // 2. Se é diretório
     std::string index;
-    std::cout << "\nRequested path is directory: " << path << "\n" << std::endl;
+    //std::cout << "\nRequested path is directory: " << path << "\n" << std::endl;
     if (dirExists(path))
     {
-        // construir path do index
         if (!loc.index.empty())
         {
             index = path;
@@ -255,8 +266,7 @@ Response    methodGet(const ServerConfig &config,
         else
             index = path + "/index.html";
 
-        // 2.a. Se tem index.html → retornar index.html
-        std::cout << "\nIndex path: " << index << "\n" << std::endl;
+        //std::cout << "\nIndex path: " << index << "\n" << std::endl;
         if (fileExists(index))
         {
             res.body = readFile(index);
@@ -266,17 +276,14 @@ Response    methodGet(const ServerConfig &config,
             return res;
         }
 
-        // 2.b. Se auto_index está on → gerar listagem
         bool autoIndex = getAutoIndex(config, loc);
 
         if (autoIndex)
             return generateDirectoryListing(uri, path);
 
-        // 2.c. Caso contrário → Forbidden
         return forbiddenPageResponse(config);
     }
 
-    // 3. Caso contrário → Not found
     return notFoundResponse(config);
 }
 

@@ -8,10 +8,8 @@
 #include <stdexcept>
 #include <cstdlib>
 
-// =========================
-// Funções utilitárias
-// =========================
-static std::string trim(const std::string &s)
+// Funções uteis
+static std::string  trim(const std::string &s)
 {
     size_t start = 0;
     while (start < s.size() && std::isspace(s[start]))
@@ -36,15 +34,13 @@ static std::string stripSemicolon(const std::string &s)
     return s;
 }
 
-// =========================
 // Parser de Location
-// =========================
 void    ConfigParser::parseLocation(std::ifstream &file,
                                  LocationConfig &loc,
                                  const std::string &firstLine)
 {
     std::string     path;
-    std::istringstream iss(firstLine);
+    std::istringstream  iss(firstLine);
     std::string     tmp;
 
     iss >> tmp;     // location
@@ -61,7 +57,6 @@ void    ConfigParser::parseLocation(std::ifstream &file,
         if (line.empty())
             continue ;
 
-        // Remove ponto e vírgula
         line = stripSemicolon(line);
 
         std::istringstream iss(line);
@@ -110,13 +105,11 @@ void    ConfigParser::parseLocation(std::ifstream &file,
     }
 }
 
-// =========================
 // Parser de Server
-// =========================
 void    ConfigParser::parseServer(std::ifstream &file, ServerConfig &cfg)
 {
     std::string     line;
-    std::string     pendingCgiExt; // extensão ainda sem path
+    std::string     pendingCgiExt;
 
     while (std::getline(file, line))
     {
@@ -127,7 +120,6 @@ void    ConfigParser::parseServer(std::ifstream &file, ServerConfig &cfg)
         if (line.empty())
             continue ;
 
-        // Remove ;
         line = stripSemicolon(line);
 
         std::istringstream iss(line);
@@ -150,10 +142,15 @@ void    ConfigParser::parseServer(std::ifstream &file, ServerConfig &cfg)
         }
         else if (key == "max_body_size")
         {
-            iss >> value;
+           iss >> value;
+            if (value.size() < 3 || value.substr(value.size() - 2) != "MB")
+            {
+                Logger::log(Logger::WARN,"max_body_size deve ser um número inteiro e terminar com 'MB'. Ignorando esta diretiva e definindo um tamanho máximo interno...");
+                continue ;
+            }
             std::string tmp = value.substr(0, value.size() - 2);
             cfg.max_body_size = std::atoi(tmp.c_str()) * (1024 * 1024);
-            if (tmp[0] == '-')
+            if (tmp[0] == '-' )
                 Logger::log(Logger::WARN, "max_body_size negativo, o servidor vai definir um tamanho máximo interno!");
         }
         else if (key == "auto_index")
@@ -183,9 +180,30 @@ void    ConfigParser::parseServer(std::ifstream &file, ServerConfig &cfg)
     }
 }
 
-// =========================
+void    ConfigParser::serverConfigFixer(ServerConfig &cfg)
+{
+    LocationConfig  loc;
+
+    if (cfg.locations.empty() || cfg.locations[0].path != "/")
+    {
+        loc.path = "/";
+        loc.root = "examples/www/site1";
+        loc.index = "index.html";
+        loc.methods.push_back("GET");
+        loc.auto_index = false;
+        cfg.locations.push_back(loc);
+        cfg.server_names.push_back("localhost");
+        cfg.root = "./examples/www/site1";
+        cfg.max_body_size = 1 * (1024 * 1024);
+        cfg.auto_index_set = false;
+        cfg.auto_index = false;
+        cfg.cgi_timeout = 3;
+        cfg.error_pages.clear();
+        cfg.locations.push_back(loc);
+    }
+}
+
 // Parse Geral
-// =========================
 Config ConfigParser::parseFile(const std::string &filename)
 {
     std::ifstream file(filename.c_str());
@@ -208,7 +226,9 @@ Config ConfigParser::parseFile(const std::string &filename)
         if (keyword == "server" || keyword == "server{")
         {
             ServerConfig    srv;
+
             parseServer(file, srv);
+            serverConfigFixer(srv);
             config.servers.push_back(srv);
         }
     }

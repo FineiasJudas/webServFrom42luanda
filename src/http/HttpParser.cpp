@@ -122,7 +122,6 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
 
     req.header_end = header_end + 4;
 
-    // ===== Parse request line + headers =====
     std::string headers_block = data.substr(0, header_end);
     std::istringstream ss(headers_block);
     std::string line;
@@ -158,14 +157,12 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
         req.headers[key] = val;
     }
 
-    // ===== CHUNKED TEM PRIORIDADE =====
+    // CHUNKED TEM PRIORIDADE 
     if (req.headers.count("Transfer-Encoding") &&
         req.headers["Transfer-Encoding"] == "chunked")
-    {
         return parseChunkedBody(buffer, req);
-    }
 
-    // ===== CONTENT-LENGTH =====
+    //  TAMANHO DO CONTEÚDO (BODY) 
     if (req.headers.count("Content-Length"))
     {
         size_t body_len = std::atoi(req.headers["Content-Length"].c_str());
@@ -177,14 +174,14 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
         }
 
         if (buffer.size() < req.header_end + body_len)
-            return false; // ainda incompleto
+            return false;
 
         req.body = data.substr(req.header_end, body_len);
         buffer.consume(req.header_end + body_len);
         return true;
     }
 
-    // ===== Sem body =====
+    //  SEm body =====
     buffer.consume(req.header_end);
     return true;
 }

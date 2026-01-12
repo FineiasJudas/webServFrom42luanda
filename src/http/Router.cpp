@@ -243,6 +243,7 @@ Response    Router::route(const Request &req, const ServerConfig &config, Connec
     Response r;
     Request rq = req;
 
+
     /* 1 Rotas internas */
     if (handleCsrf(rq, r))
         return r;
@@ -255,7 +256,7 @@ Response    Router::route(const Request &req, const ServerConfig &config, Connec
 
     /* 2 Encontrar location */
     const LocationConfig &loc = findBestLocation(rq.uri, config);
-    Logger::log(Logger::INFO, "Location escolhida: " + loc.path);
+    //Logger::log(Logger::INFO, "Location escolhida: " + loc.path);
 
     /* 3 Redirect */
     if (loc.redirect_code)
@@ -274,10 +275,9 @@ Response    Router::route(const Request &req, const ServerConfig &config, Connec
 
     /* 5 Resolver FS path */
     std::string fsPath = makeRealPath(rq.path, loc, config);
-    Logger::log(Logger::INFO, "FS PATH: " + fsPath);
+    // Logger::log(Logger::INFO, "FS PATH: " + fsPath);
 
     /* 7 Métodos HTTP */
-
     std::string busca = req.method;
 
     bool metodo_req_existe = std::find(loc.methods.begin(), loc.methods.end(), busca) != loc.methods.end();
@@ -286,11 +286,10 @@ Response    Router::route(const Request &req, const ServerConfig &config, Connec
         return notAloweMethodResponse(config);
 
     // daqui pra frente o método é permitido
-
     std::string ext = getExtension(rq.path);
 
-    // 1️⃣ Se não for GET → só CGI
-    if (req.method != "GET")
+    // 1 Se não for GET → só CGI
+    if (req.method != "GET" && ext != "")
     {
         for (size_t i = 0; i < loc.cgi.size(); i++)
         {
@@ -301,14 +300,14 @@ Response    Router::route(const Request &req, const ServerConfig &config, Connec
         return notAloweMethodResponse(config);
     }
 
-    // 2️⃣ GET
+    // 2 GET
     for (size_t i = 0; i < loc.cgi.size(); i++)
     {
         if (loc.cgi[i].extension == ext)
             return CgiHandler::handleCgiRequest(rq, config, loc, loc.cgi[i], conn);
     }
 
-    // 3️⃣ GET estático
+    // 3 GET estático
     return methodGet(config, loc, fsPath, rq.uri);
 
 }

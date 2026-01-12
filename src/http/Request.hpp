@@ -13,9 +13,9 @@ struct  Request
     bool    too_large_body;
     std::string     body;
     
-    std::string     path;   // apenas /delete-file
-    std::string query_string;//id=1&name=4
-    std::map<std::string, std::string>  query; // parâmetros da query-string
+    std::string     path;
+    std::string query_string;
+    std::map<std::string, std::string>  query;
     Request()
         : header_end(0), too_large_body(false) {}
 };
