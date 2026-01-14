@@ -6,7 +6,7 @@
 #include "../http/Response.hpp"
 #include <map>
 #include <string>
-#include <ctime>
+#include <ctime> 
 
 struct SessionData
 {
@@ -34,7 +34,7 @@ public:
     void loadFromFile(const std::string &path);
 
 
-    void cleanup(); // remove sessões expiradas
+    void cleanup();
 };
 
 extern SessionManager g_sessions;

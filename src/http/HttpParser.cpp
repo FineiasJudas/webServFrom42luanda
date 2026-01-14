@@ -113,7 +113,7 @@ void    HttpParser::parseQueryParams(Request &req)
     }
 }
 
-bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
+bool HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_size)
 {
     std::string data = buffer.toString();
     size_t header_end = data.find("\r\n\r\n");
@@ -140,7 +140,7 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
         return false;
 
     parseQueryParams(req);
-
+    std::map<std::string, int> header_count;
     while (std::getline(ss, line))
     {
         if (!line.empty() && line[line.size() - 1] == '\r')
@@ -155,6 +155,25 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
         std::string key = trim(line.substr(0, colon));
         std::string val = trim(line.substr(colon + 1));
         req.headers[key] = val;
+
+        header_count[key]++;
+    
+        if (key == "Host" && header_count[key] > 1)
+        {
+            req.bad_request = true;
+            req.bad_request_reason = "Multiple Host headers";
+            return true;
+        }
+    }
+
+    if (req.version == "HTTP/1.1")
+    {
+        if (!req.headers.count("Host") || req.headers["Host"].empty())
+        {
+            req.bad_request = true;
+            req.bad_request_reason = "Missing Host header";
+            return true;
+        }
     }
 
     // CHUNKED TEM PRIORIDADE 
@@ -162,7 +181,7 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
         req.headers["Transfer-Encoding"] == "chunked")
         return parseChunkedBody(buffer, req);
 
-    //  TAMANHO DO CONTEÚDO (BODY) 
+    // TAMANHO DO CONTEÚDO (BODY) 
     if (req.headers.count("Content-Length"))
     {
         size_t body_len = std::atoi(req.headers["Content-Length"].c_str());
@@ -181,7 +200,7 @@ bool    HttpParser::parseRequest(Buffer &buffer, Request &req, size_t max_body_s
         return true;
     }
 
-    //  SEm body =====
+    // Sem body
     buffer.consume(req.header_end);
     return true;
 }

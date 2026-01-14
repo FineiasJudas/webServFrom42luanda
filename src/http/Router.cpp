@@ -256,7 +256,6 @@ Response    Router::route(const Request &req, const ServerConfig &config, Connec
 
     /* 2 Encontrar location */
     const LocationConfig &loc = findBestLocation(rq.uri, config);
-    //Logger::log(Logger::INFO, "Location escolhida: " + loc.path);
 
     /* 3 Redirect */
     if (loc.redirect_code)
@@ -275,7 +274,6 @@ Response    Router::route(const Request &req, const ServerConfig &config, Connec
 
     /* 5 Resolver FS path */
     std::string fsPath = makeRealPath(rq.path, loc, config);
-    // Logger::log(Logger::INFO, "FS PATH: " + fsPath);
 
     /* 7 Métodos HTTP */
     std::string busca = req.method;

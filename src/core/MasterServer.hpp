@@ -9,6 +9,12 @@
 #include "../http/Request.hpp"
 #include "../config/Config.hpp"
 
+struct  ListenAddress
+{
+    std::string ip;
+    int     port;
+};
+
 class   MasterServer
 {
     public:
@@ -29,7 +35,7 @@ class   MasterServer
         int     keepalive_timeout;
 
         void    createListenSockets(const std::vector<ServerConfig> &servers);
-        int     createListenSocketForPort(int port);
+        int     createListenSocket(const std::string &ip, int port);
 
         void    handleAccept(int listenFd);
         void    handleRead(int clientFd);
@@ -42,6 +48,8 @@ class   MasterServer
         void    checkCgiTimeouts();
         bool    isListenFd(int fd) const;
         int     parsePortFromListenString(const std::string &s) const;
+
+        ListenAddress  parseListen(const std::string &s);
     
         void    handleCgiRead(int cgiFd);
         void    handleCgiWrite(int cgiFd);

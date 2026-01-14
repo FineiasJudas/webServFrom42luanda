@@ -242,7 +242,7 @@ Response    methodGet(const ServerConfig &config,
         path.erase(p + 1, 2);
         path[p] = ' ';
     }
-    
+
     if (fileExists(path))
     {
         res.body = readFile(path);
