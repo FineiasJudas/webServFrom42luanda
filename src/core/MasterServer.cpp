@@ -4,6 +4,7 @@
 #include "../http/HttpParser.hpp"
 #include "../http/Router.hpp"
 #include "../../includes/Headers.hpp"
+#include <netdb.h>
 #include "../exceptions/WebServException.hpp"
 #include "./../utils/keywords.hpp"
 #include "../session/SessionManager.hpp"
@@ -11,7 +12,7 @@
 
 volatile sig_atomic_t g_running = 1;
 
-MasterServer::MasterServer(const std::vector<ServerConfig> &servers)
+MasterServer::MasterServer(std::vector<ServerConfig> &servers)
 {
     this->read_timeout = 30;
     this->write_timeout = 30;
@@ -37,82 +38,154 @@ MasterServer::~MasterServer()
         close(it->first);
 }
 
-ListenAddress  MasterServer::parseListen(const std::string &s)
-{
-    ListenAddress   addr;
-    size_t colon = s.find(':');
-
-    if ( colon == std::string::npos)
-    {
-        addr.ip = "0.0.0.0";
-        addr.port = std::atoi(s.c_str());
-    }
-    else
-    {
-        addr.ip = s.substr(0, colon);
-        addr.port = std::atoi(s.substr(colon + 1).c_str());
-        if (addr.ip == "localhost")
-            addr.ip = "127.0.0.1";
-    }
-    return (addr);
-}
-
-void    MasterServer::createListenSockets(const std::vector<ServerConfig> &servers)
+void    MasterServer::createListenSockets(std::vector<ServerConfig> &servers)
 {
     for (size_t i = 0; i < servers.size(); ++i)
     {
-        const ServerConfig &sc = servers[i];
+        ServerConfig &server = servers[i];
 
-        if (sc.listen.size() != 1)
+        // 1. Obter listen string
+        std::string listen = server.listen[0]; // ex: "8080" ou "127.0.0.1:8080"
+
+        if (listen.empty())
         {
-            Logger::log(Logger::ERROR, "Cada server deve ter exatamente um listen");
+            Logger::log(Logger::ERROR, "Server sem diretiva listen");
             continue ;
         }
 
-        ListenAddress addr = parseListen(sc.listen[0]);
+        // 2. Normalizar listenKey
+        std::string ip = "0.0.0.0";
+        std::string port;
 
-        if (addr.port < KW::MIN_VALUE_PORT || addr.port > KW::MAX_VALUE_PORT)
+        size_t colon = listen.find(':');
+        if (colon == std::string::npos)
+            port = listen;
+        else
         {
-            Logger::log(Logger::ERROR, "Porta inválida");
-            continue;
+            ip   = listen.substr(0, colon);
+            port = listen.substr(colon + 1);
         }
 
-        int fd = createListenSocket(addr.ip, addr.port);
+        std::string listenKey = ip + ":" + port;
+
+        // 3. Evitar duplicação
+        if (usedListenKeys.count(listenKey))
+        {
+            Logger::log(Logger::ERROR,
+                "Porta duplicada ignorada: " + listenKey);
+            continue ;
+        }
+
+        // 4. Criar socket
+        int fd = createListenSocketForPort(listen);
         if (fd < 0)
         {
-            Logger::log(Logger::ERROR, "Falha ao criar socket");
-            continue;
+            Logger::log(Logger::ERROR,
+                "Falha ao criar socket para " + listenKey);
+            continue ;
         }
 
-        listenFdToServers[fd] = (ServerConfig *)&sc;
-        Logger::log(Logger::INFO, "Ouvindo em " + addr.ip + ":" + Utils::toString(addr.port));
+        // 5. Associar fd → server
+        listenFdToServers[fd] = &server;
+        usedListenKeys.insert(listenKey);
+
+        Logger::log(Logger::INFO,
+            "Servidor escutando em " + listenKey);
     }
 }
 
-int MasterServer::createListenSocket(const std::string &ip, int port)
+
+int MasterServer::createListenSocketForPort(const std::string &_listen)
 {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0)
+    std::string ip = "0.0.0.0";
+    std::string port;
+
+    // Parse IP:PORT ou PORT
+    size_t colon = _listen.find(':');
+    if (colon == std::string::npos)
+    {
+        port = _listen;
+    }
+    else
+    {
+        ip   = _listen.substr(0, colon);
+        port = _listen.substr(colon + 1);
+    }
+
+    struct addrinfo hints;
+    struct addrinfo *res;
+
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family   = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags    = AI_PASSIVE;
+
+    int ret = getaddrinfo(
+        ip == "0.0.0.0" ? NULL : ip.c_str(),
+        port.c_str(),
+        &hints,
+        &res
+    );
+
+    if (ret != 0)
+    {
+        Logger::log(Logger::ERROR,
+            "getaddrinfo failed for " + _listen + ": " + gai_strerror(ret));
         return (-1);
+    }
 
+    // socket
+    int fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if (fd < 0)
+    {
+        Logger::log(Logger::ERROR, "socket() failed");
+        freeaddrinfo(res);
+        return (-1);
+    }
+
+    // SO_REUSEADDR
     int opt = 1;
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+    {
+        Logger::log(Logger::ERROR, "setsockopt(SO_REUSEADDR) failed");
+        close(fd);
+        freeaddrinfo(res);
+        return (-1);
+    }
 
-    sockaddr_in addr;
-    std::memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
+    // Non-blocking (OBRIGATÓRIO)
+    if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
+    {
+        Logger::log(Logger::ERROR, "fcntl(O_NONBLOCK) failed");
+        close(fd);
+        freeaddrinfo(res);
+        return (-1);
+    }
 
-    if (inet_pton(AF_INET, ip.c_str(), &addr.sin_addr) <= 0)
-        return close(fd), (-1);
+    // bind
+    if (bind(fd, res->ai_addr, res->ai_addrlen) < 0)
+    {
+        Logger::log(Logger::ERROR,
+            "bind() failed on " + _listen + " (" + strerror(errno) + ")");
+        close(fd);
+        freeaddrinfo(res);
+        return (-1);
+    }
 
-    if (bind(fd, (sockaddr *)&addr, sizeof(addr)) < 0)
-        return close(fd), (-1);
-
+    // listen
     if (listen(fd, MAX_EVENTS) < 0)
-        return close(fd), (-1);
+    {
+        Logger::log(Logger::ERROR, "listen() failed");
+        close(fd);
+        freeaddrinfo(res);
+        return (-1);
+    }
 
+    freeaddrinfo(res);
+
+    // epoll register
     poller.addFd(fd, EPOLLIN | EPOLLOUT);
+
     return (fd);
 }
 
