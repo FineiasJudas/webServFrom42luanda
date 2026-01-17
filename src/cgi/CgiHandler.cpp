@@ -1,6 +1,7 @@
 #include "../../includes/Headers.hpp"
 #include "../utils/Logger.hpp"
 #include "CgiHandler.hpp"
+#include <cstdlib>
 
 // helper trimming
 static std::string trim(const std::string &s)
@@ -229,7 +230,7 @@ CgiResult   CgiHandler::execute(const Request &req,
         result.raw_output = "Status: 500\r\nContent-Type: text/plain\r\n\r\nFork failed\n";
         return result;
     }
-    
+
     // CHILD
     if (pid == 0)
     {
@@ -244,9 +245,9 @@ CgiResult   CgiHandler::execute(const Request &req,
         close(stdout_pipe[1]);
         
         execve(interpreter.c_str(), &argv_vec[0], &envp[0]);
-        _exit(127);
+        std::exit(127);
     }
-    
+
     // PARENT - NÃO BLOQUEIA!
     close(stdin_pipe[0]);
     close(stdout_pipe[1]);
