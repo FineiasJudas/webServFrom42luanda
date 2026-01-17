@@ -1,54 +1,90 @@
 # webserv 42
 
-*Este projeto foi desenvolvido como parte do currículo da 42 por fjilaias, manandre e alde-jes.*
-
+*This project was developed as part of the 42 curriculum by fjilaias, manandre, and alde-jes.*
 
 ## **Description**
-O webserv é um servidor web HTTP leve, desenvolvido em C++, como parte do currículo da 42.
-O objetivo principal deste projeto é compreender como um servidor web funciona internamente, implementando-o do zero, sem o uso de frameworks externos.
 
-O servidor é capaz de lidar com múltiplas conexões de clientes em simultâneo, interpretar requisições HTTP e devolver respostas adequadas. Ele suporta métodos HTTP básicos como o GET e o POST, serve ficheiros estáticos, gere ficheiros de configuração e segue as especificações do protocolo HTTP/1.1.
+**webserv** is a lightweight HTTP web server developed in C++ as part of the 42 curriculum.
+The main goal of this project is to understand how a web server works internally by implementing it from scratch, without using external frameworks.
 
-Com este projeto, são explorados conceitos fundamentais de redes de baixo nível, como sockets, I/O não bloqueante, multiplexação com poll, e uma gestão correta de recursos. O foco está no desempenho, na estabilidade e no cumprimento do padrão HTTP.
+The server can handle multiple client connections simultaneously, parse HTTP requests, and return appropriate responses. It supports basic HTTP methods like **GET** and **POST**, serves static files, manages configuration files, and follows the HTTP/1.1 protocol specifications.
+
+This project explores fundamental low-level networking concepts, such as sockets, non-blocking I/O, multiplexing with `poll`, and proper resource management. The focus is on performance, stability, and compliance with the HTTP standard.
 
 ## **Instructions**
-Compilação
 
-O projeto deve ser compilado utilizando o Makefile fornecido.
+### **Compilation**
+
+The project should be compiled using the provided Makefile:
+
 ```bash
-meke
-```
-Este comando gera o executável **webserv**
-Para limpar os ficheiros gerados:
-```bash
-meke clean
-```
-Para limpar tudo, incluindo o executável:
-```bash
-meke fclean
-```
-Para recompilar do zero:
-```bash
-meke re
+make
 ```
 
-## **Execution**
-Após a compilação, o servidor pode ser executado da seguinte forma:
+This command generates the **webserv** executable.
+
+To clean generated files:
+
 ```bash
-./webserv <ficheiro_de_configuração>
+make clean
 ```
-Exemplo: 
+
+To clean everything, including the executable:
+
+```bash
+make fclean
+```
+
+To recompile from scratch:
+
+```bash
+make re
+```
+
+### **Execution**
+
+After compilation, the server can be run as follows:
+
+```bash
+./webserv <configuration_file>
+```
+
+Example:
+
 ```bash
 ./webserv config/default.conf
 ```
-## **Usage**
-Depois de iniciado, o servidor fica à escuta na porta definida no ficheiro de configuração.
-Pode ser acedido através de um navegador web ou com ferramentas como curl:
+
+### **Usage**
+
+Once started, the server listens on the port defined in the configuration file.
+It can be accessed through a web browser or tools like `curl`:
+
 ```bash
 curl http://localhost:8080
 ```
 
-## **Requirements**
-- Sistema operativo Linux
-- Compilador C++ compatível com C++98
-- Make
+### **Requirements**
+
+* Linux operating system
+* C++ compiler compatible with **C++98**
+* Make
+
+## **Resources**
+
+### **NGINX**
+
+* [Nginx Study Guide](https://iris-dungeon-e66.notion.site/Guia-de-estudos-Nginx-2433cdde6693807da12cd3bf69f04163)
+
+### **HTTP/1.1**
+
+* [YouTube – The Evolution of HTTP Protocol – vadebyte](https://www.youtube.com/watch?v=NLLlFOgRcpM)
+* [YouTube – HTTP Protocol – Mauro de Boni](https://www.youtube.com/watch?v=NLLlFOgRcpM)
+
+### **Non-blocking Systems**
+
+* [webserv: Building a Non-Blocking Web Server in C++98](https://m4nnb3ll.medium.com/webserv-building-a-non-blocking-web-server-in-c-98-a-42-project-04c7365e4ec7)
+
+### **How AI was used**
+
+During the development of **webserv**, AI was used only to generate ideas, support function testing, and clarify concepts. All code was reviewed, tested, and discussed among the team, ensuring full understanding and complete control over the project.
