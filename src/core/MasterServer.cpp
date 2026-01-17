@@ -45,7 +45,7 @@ void    MasterServer::createListenSockets(std::vector<ServerConfig> &servers)
         ServerConfig &server = servers[i];
 
         // 1. Obter listen string
-        std::string listen = server.listen[0]; // ex: "8080" ou "127.0.0.1:8080"
+        std::string listen = server.listen[0];
 
         if (listen.empty())
         {
@@ -100,16 +100,20 @@ int MasterServer::createListenSocketForPort(const std::string &_listen)
     std::string ip = "0.0.0.0";
     std::string port;
 
-    // Parse IP:PORT ou PORT
     size_t colon = _listen.find(':');
     if (colon == std::string::npos)
-    {
         port = _listen;
-    }
     else
     {
         ip   = _listen.substr(0, colon);
         port = _listen.substr(colon + 1);
+    }
+
+    if (port.empty())
+    {
+        Logger::log(Logger::ERROR,
+            "Diretiva listen inválida (porta ausente): " + _listen);
+        return (-1);
     }
 
     struct addrinfo hints;
@@ -134,7 +138,6 @@ int MasterServer::createListenSocketForPort(const std::string &_listen)
         return (-1);
     }
 
-    // socket
     int fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if (fd < 0)
     {
@@ -143,7 +146,6 @@ int MasterServer::createListenSocketForPort(const std::string &_listen)
         return (-1);
     }
 
-    // SO_REUSEADDR
     int opt = 1;
     if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
     {
@@ -153,7 +155,6 @@ int MasterServer::createListenSocketForPort(const std::string &_listen)
         return (-1);
     }
 
-    // Non-blocking (OBRIGATÓRIO)
     if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
     {
         Logger::log(Logger::ERROR, "fcntl(O_NONBLOCK) failed");
@@ -162,7 +163,6 @@ int MasterServer::createListenSocketForPort(const std::string &_listen)
         return (-1);
     }
 
-    // bind
     if (bind(fd, res->ai_addr, res->ai_addrlen) < 0)
     {
         Logger::log(Logger::ERROR,
@@ -172,7 +172,6 @@ int MasterServer::createListenSocketForPort(const std::string &_listen)
         return (-1);
     }
 
-    // listen
     if (listen(fd, MAX_EVENTS) < 0)
     {
         Logger::log(Logger::ERROR, "listen() failed");
@@ -183,7 +182,6 @@ int MasterServer::createListenSocketForPort(const std::string &_listen)
 
     freeaddrinfo(res);
 
-    // epoll register
     poller.addFd(fd, EPOLLIN | EPOLLOUT);
 
     return (fd);
