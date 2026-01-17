@@ -28,7 +28,7 @@ int main(int ac, char **av)
 
         Logger::init(Logger::DEBUG, "");
 
-        MasterServer master(conf.servers);
+        MasterServer    master(conf.servers);
         master.run();
 
         Logger::shutdown();

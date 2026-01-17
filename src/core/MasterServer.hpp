@@ -4,15 +4,22 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <set>
 #include "Poller.hpp"
 #include "Connection.hpp"
 #include "../http/Request.hpp"
 #include "../config/Config.hpp"
 
+struct  ListenAddress
+{
+    std::string ip;
+    int     port;
+};
+
 class   MasterServer
 {
     public:
-        MasterServer(const std::vector<ServerConfig> &servers);
+        MasterServer(std::vector<ServerConfig> &servers);
         ~MasterServer();
 
         void    run();
@@ -22,14 +29,14 @@ class   MasterServer
         std::map<int, ServerConfig *> listenFdToServers;
         std::map<int, Connection *> connections;
         std::map<int, int> cgiFdToClientFd;
-        std::vector<int>    ports;
+        std::set<std::string> usedListenKeys;
 
         int     read_timeout;
         int     write_timeout;
         int     keepalive_timeout;
 
-        void    createListenSockets(const std::vector<ServerConfig> &servers);
-        int     createListenSocketForPort(int port);
+        void    createListenSockets(std::vector<ServerConfig> &servers);
+        int createListenSocketForPort(const std::string &listen);
 
         void    handleAccept(int listenFd);
         void    handleRead(int clientFd);
@@ -41,7 +48,6 @@ class   MasterServer
         void    checkTimeouts();
         void    checkCgiTimeouts();
         bool    isListenFd(int fd) const;
-        int     parsePortFromListenString(const std::string &s) const;
     
         void    handleCgiRead(int cgiFd);
         void    handleCgiWrite(int cgiFd);

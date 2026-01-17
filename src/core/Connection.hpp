@@ -6,25 +6,22 @@
 #include "Buffer.hpp"
 #include "../config/Config.hpp"
 
-// No Connection.hpp
-struct CgiState
+struct  CgiState
 {
-    pid_t pid;
+    pid_t   pid;
     int stdout_fd;
     int stdin_fd;
     std::string output;
-    time_t start_time;
-    bool stdin_closed;
-    
-    // NOVO: para escrita não-bloqueante
-    std::string pending_write;  // O que ainda falta escrever no stdin
-    size_t write_offset;        // Quanto já escrevemos
+    time_t  start_time;
+    bool    stdin_closed;
+    std::string pending_write;
+    size_t  write_offset;
     
     CgiState() : pid(-1), stdout_fd(-1), stdin_fd(-1), 
                  start_time(0), stdin_closed(false), write_offset(0) {}
 };
 
-class Connection
+class   Connection
 {
     private:
         int     fd;
@@ -40,7 +37,7 @@ class Connection
         bool    waiting_for_write;
         time_t  write_start_time;
         bool    is_rejeting;
-        CgiState *cgi_state;
+        CgiState    *cgi_state;
 
     public:
         Connection(int fd);
@@ -50,7 +47,7 @@ class Connection
         void    setListenFd(int lf);
         int     getListenFd() const;
 
-        void    setServer(ServerConfig* s);
+        void    setServer(ServerConfig *s);
         ServerConfig    *getServer() const;
 
         Buffer  &getInputBuffer();
@@ -64,7 +61,6 @@ class Connection
         ssize_t     writeToFd(const char *data, size_t size);
 
         void    updateActivity();
-
 };
 
 #endif

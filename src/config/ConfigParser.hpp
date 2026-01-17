@@ -14,6 +14,8 @@ class   ConfigParser
                                  const std::string &firstLine);
         static void     parseServer(std::ifstream &file, ServerConfig &cfg);
 
+        static void     serverConfigFixer(ServerConfig &cfg);
+
 };
 
 #endif

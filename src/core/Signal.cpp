@@ -6,7 +6,7 @@ static void sigint_handler(int signum)
     if (signum == SIGINT)
     {
         g_running = 0;
-        std::cout << "\n🛑 SIGINT recebido — encerrando servidor...\n";
+        std::cout << "\nSIGINT recebido — encerrando servidor...\n";
     }
 }
 

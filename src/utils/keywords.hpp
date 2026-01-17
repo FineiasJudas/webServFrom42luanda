@@ -3,7 +3,7 @@
 
 #include <string>
 
-namespace KW {
+namespace KW { 
     const std::string SERVER = "server";
     const std::string LOCATION = "location";
     const std::string LISTEN = "listen";
@@ -15,7 +15,7 @@ namespace KW {
     const std::string METHODS = "methods";
     const std::string CGI_PATH = "cgi_path";
     const std::string CGI_EXTENSION = "cgi_extension";
-    const std::string DIRECTORY_LISTING = "directory_listing";
+    const std::string DIRECTORY_LISTING = "directory_listing"; 
     const std::string ON = "on";
     const std::string OFF = "off";
     const std::string UPLOAD_DIR = "upload_dir";

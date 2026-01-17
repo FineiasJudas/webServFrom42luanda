@@ -523,7 +523,8 @@ async function deleteFile(filename) {
     if (!confirm("Deseja realmente apagar " + filename + "?"))
         return;
 
-    try {
+    try
+    {
         const res = await fetch(
             `/cgi-bin/php/delete_file.php?file=${encodeURIComponent(filename)}`
         );

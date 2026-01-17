@@ -17,5 +17,4 @@ class   HttpParser
         static bool parseChunkedBody(Buffer &buffer, Request &req);
 };
 
-
 #endif

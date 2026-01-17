@@ -47,11 +47,11 @@ ssize_t Connection::readFromFd()
         input_buffer.append(buffer, bytes);
         updateActivity();
         return (bytes);
-    } // leitura bem sucedida
+    }
 
     if (bytes == 0)
-        return (0); // conexão fechada pelo cliente
-    return (-1); // erro na leitura
+        return (0);
+    return (-1);
 }
 
 ssize_t Connection::writeToFd(const char* data, size_t size)

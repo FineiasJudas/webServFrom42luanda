@@ -3,10 +3,14 @@
 
 Poller::Poller()
 {
-    epfd = epoll_create1(0);
+    epfd = epoll_create(1);
     if (epfd < 0)
-        throw std::runtime_error("epoll_create1 failed");
-
+        throw std::runtime_error("epoll_create failed");
+    
+    int flags = fcntl(epfd, F_GETFD);
+    if (flags != -1)
+        fcntl(epfd, F_SETFD, flags | FD_CLOEXEC);
+    
     eventBuffer.resize(1024);
 }
 

@@ -3,8 +3,8 @@
 
 #include <signal.h>
 
-extern volatile bool g_running;
+extern volatile bool    g_running;
 
-void setupSignalHandlers();
+void    setupSignalHandlers();
 
 #endif

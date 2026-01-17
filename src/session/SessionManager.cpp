@@ -9,8 +9,8 @@ SessionManager  g_sessions(60 * 5);
 
 static std::string  generateRandomId()
 {
-    std::stringstream ss;
-    ss << std::hex << rand() << rand();
+    std::stringstream   ss;
+    ss << std::hex << std::rand() << std::rand();
     return ss.str();
 }
 
@@ -223,8 +223,6 @@ bool    Router::handleLogin(const Request &req, Response &res)
                 csrf_cookie = csrf_cookie.substr(0, end);
         }
     }
-
-    std::cout << "Sent token: " << sent_token << ", Cookie token: " << csrf_cookie << std::endl;
 
     if (sent_token.find(csrf_cookie) == std::string::npos)
     {

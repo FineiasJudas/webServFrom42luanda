@@ -33,7 +33,6 @@ if ($contentLength <= 0)
     echo "POST sem conteúdo (Content-Length = 0).\n";
     exit(0);
 }
-
 // Ler raw input
 $rawData = file_get_contents("php://input", false, null, 0, $contentLength);
 $actualSize = strlen($rawData);

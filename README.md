@@ -1,152 +1,90 @@
-upload keep-alive
--carregar arquivo muito grande(Status 413 Payload Too Large)
-req: http://localhost:8080/uploads.html
+# webserv 42
 
-# webserv
+*This project was developed as part of the 42 curriculum by fjilaias, manandre, and alde-jes.*
 
-## KEYWORDS_HPP
-Esse header define um namespace chamado KW, onde cada campo é uma constante std::string usada como palavra-chave no projecto.
+## **Description**
 
-Ele serve para evitar escrever strings “literais” pelo código e garantir que todas as palavras sejam consistentes e fáceis de modificar num só lugar.
+**webserv** is a lightweight HTTP web server developed in C++ as part of the 42 curriculum.
+The main goal of this project is to understand how a web server works internally by implementing it from scratch, without using external frameworks.
 
-### usar no código
-bash ``
-#include "src/utils/keywords.hpp"
+The server can handle multiple client connections simultaneously, parse HTTP requests, and return appropriate responses. It supports basic HTTP methods like **GET** and **POST**, serves static files, manages configuration files, and follows the HTTP/1.1 protocol specifications.
 
-if (token == KW::SERVER)
-    faz ou deixa de fazer alguma coisa;
+This project explores fundamental low-level networking concepts, such as sockets, non-blocking I/O, multiplexing with `poll`, and proper resource management. The focus is on performance, stability, and compliance with the HTTP standard.
 
-``
+## **Instructions**
 
-### adicionar mais conteúdo
-no arquivo src/utils/keywords.hpp, adicionar  
-bash ``
-const std::string TIMEOUT = "timeout";
-``
+### **Compilation**
 
-## WebServException.hpp
+The project should be compiled using the provided Makefile:
 
-Este arquivo define a classe base de exceções WebServException e várias exceções específicas para o servidor web (ex.: PortException, SocketException, BindException, etc.).
+```bash
+make
+```
 
-Ele permite tratar erros de forma organizada e consistente, fornecendo mensagens claras para cada tipo de falha.
+This command generates the **webserv** executable.
 
-### usar no código
+To clean generated files:
 
-bash ``
-if (port < 1 || port > 65535)
-    throw PortException("Porta inválida: " + portStr);
-``
-### adicionar novas exceções
+```bash
+make clean
+```
 
-bash ``
-class NomeDaExcecao : public WebServException {
-public:
-    inline NomeDaExcecao(const std::string &value)
-        : WebServException("NomeDaExcecao: " + value) {}
-};
-``
+To clean everything, including the executable:
 
-[2025-12-14 20:17:05] INFO  | PATH: /uploads/m22.png
-[2025-12-14 20:17:05] DEBUG | Status 200 OK
-[2025-12-14 20:17:26] WARN  | [TIMEOUT] Keep-Alive Timeout FD 5
-[2025-12-14 20:17:26] WARN  | [TIMEOUT] Keep-Alive Timeout FD 6
-[2025-12-14 20:17:26] WARN  | [TIMEOUT] Keep-Alive Timeout FD 7
-[2025-12-14 20:17:26] WARN  | [TIMEOUT] Keep-Alive Timeout FD 8
-[2025-12-14 20:17:26] WARN  | [TIMEOUT] Keep-Alive Timeout FD 9
-[2025-12-14 20:17:26] WARN  | [TIMEOUT] Keep-Alive Timeout FD 10
-[2025-12-14 20:17:26] WARN  | Conexão fechada FD 5
-[2025-12-14 20:17:26] WARN  | Conexão fechada FD 6
-[2025-12-14 20:17:26] WARN  | Conexão fechada FD 7
-[2025-12-14 20:17:26] WARN  | Conexão fechada FD 8
-[2025-12-14 20:17:26] WARN  | Conexão fechada FD 9
-[2025-12-14 20:17:26] WARN  | Conexão fechada FD 10
-[2025-12-14 20:17:56] NEW   | Nova conexão aceita FD 5
-[2025-12-14 20:17:56] NEW   | Status 413 Payload Too Large
-[2025-12-14 20:17:59] NEW   | Status 413 Payload Too Large
-[2025-12-14 20:18:01] NEW   | Status 413 Payload Too Large
-[2025-12-14 20:18:02] NEW   | Status 413 Payload Too Large
-[2025-12-14 20:18:03] NEW   | Status 413 Payload Too Large
-[2025-12-14 20:18:19] WARN  | [TIMEOUT] Read Timeout FD 5
-[2025-12-14 20:18:19] WARN  | Conexão fechada FD 5
+```bash
+make fclean
+```
 
+To recompile from scratch:
 
+```bash
+make re
+```
 
+### **Execution**
 
-## Não usar o `errno`
+After compilation, the server can be run as follows:
 
-Não precisamos do while no read:
+```bash
+./webserv <configuration_file>
+```
 
-- O controle do fluxo de leitura não é feito pelo `read()`, mas pelo `epoll`/`poll`.  
-- Um socket só entra na função `handleRead()` porque o `poll`/`epoll` indicou que **há dados disponíveis para ler**.
+Example:
 
-### Comportamento esperado:
+```bash
+./webserv config/default.conf
+```
 
-1. Quando os dados acabam, o `read()` retorna `-1`.  
-2. Nesse ponto, nós **paramos de ler** e voltamos ao loop principal.  
-3. O próximo evento de leitura será tratado **quando o `poll`/`epoll` indicar novamente** que há dados.  
+### **Usage**
 
-**Conclusão:**  
-Não é necessário diferenciar entre “erro temporário” ou “erro real” dentro do `read()`. O epoll/poll garante que você só será notificado quando houver algo a processar. 
+Once started, the server listens on the port defined in the configuration file.
+It can be accessed through a web browser or tools like `curl`:
 
+```bash
+curl http://localhost:8080
+```
 
-# CGI - COMUM GETAWAY INTERFACE
-## CGI - PHP
-INTERPERTADOR: /usr/bin/php-cgi
-### ARQUIVO GRANDE DEMIS
-PARECE QUE O ARQUIVO /etc/php/8.3/cgi/php.ini contem vars que limitão o tamanho do arquivo
-a carregar. Alterei para:
-upload_max_filesize = 10M      ; tamanho máximo de cada arquivo
-post_max_size = 20M            ; tamanho máximo do corpo da requisição
+### **Requirements**
 
-bash `
- ~ php-cgi -i | grep "Loaded Configuration File"
-<tr><td class="e">Loaded Configuration File </td><td class="v">/etc/php/8.3/cgi/php.ini </td></tr>
-➜  ~ vi /etc/php/8.3/cgi/php.ini
-➜  ~ sudo vi /etc/php/8.3/cgi/php.ini
-`
+* Linux operating system
+* C++ compiler compatible with **C++98**
+* Make
 
-# 📘 2️⃣ Texto pronto para o README (pode copiar e colar)
+## **Resources**
 
-### ### HTTP Methods Handling
+### **NGINX**
 
-Este servidor implementa um roteamento explícito e seguro dos métodos HTTP, conforme o subject do projeto.
+* [Nginx Study Guide](https://iris-dungeon-e66.notion.site/Guia-de-estudos-Nginx-2433cdde6693807da12cd3bf69f04163)
 
-#### GET
+### **HTTP/1.1**
 
-* GET é o único método permitido para servir ficheiros estáticos.
-* GET também pode ser encaminhado para CGI, caso a extensão do ficheiro esteja configurada como CGI na location.
+* [YouTube – The Evolution of HTTP Protocol – vadebyte](https://www.youtube.com/watch?v=NLLlFOgRcpM)
+* [YouTube – HTTP Protocol – Mauro de Boni](https://www.youtube.com/watch?v=NLLlFOgRcpM)
 
-#### POST, DELETE e outros métodos
+### **Non-blocking Systems**
 
-* Métodos diferentes de GET **não são permitidos para conteúdo estático**.
-* POST, DELETE e outros métodos só são aceitos quando a requisição é encaminhada para um CGI.
-* Caso um método não permitido seja usado fora de um CGI, o servidor retorna **405 Method Not Allowed**.
+* [webserv: Building a Non-Blocking Web Server in C++98](https://m4nnb3ll.medium.com/webserv-building-a-non-blocking-web-server-in-c-98-a-42-project-04c7365e4ec7)
 
-#### DELETE
+### **How AI was used**
 
-* O método DELETE é totalmente suportado pelo servidor.
-* Pode ser testado diretamente via `curl`:
-
-  ```bash
-  curl -X DELETE http://localhost:8080/cgi-bin/php/delete_file.php?file=example.txt
-  ```
-* Em navegadores, onde DELETE não é suportado nativamente por formulários ou iframes, é utilizado GET como fallback para operações administrativas via CGI.
-
-Essa abordagem garante:
-
-* Separação clara entre conteúdo estático e dinâmico
-* Segurança contra operações destrutivas fora do CGI
-* Conformidade com o subject do projeto
-
----
-
-## 🔥 Observação final (importante para avaliação)
-
-Se o avaliador perguntar:
-
-> “Por que DELETE não funciona no browser?”
-
-Resposta curta e certa:
-
-> “DELETE funciona no servidor e pode ser testado via curl. Para o frontend HTML, usamos GET como fallback porque browsers não suportam DELETE de forma confiável em formulários e iframes.”
-
+During the development of **webserv**, AI was used only to generate ideas, support function testing, and clarify concepts. All code was reviewed, tested, and discussed among the team, ensuring full understanding and complete control over the project.
