@@ -45,7 +45,7 @@ void    MasterServer::createListenSockets(std::vector<ServerConfig> &servers)
         ServerConfig &server = servers[i];
 
         // 1. Obter listen string
-        std::string listen = server.listen[0]; // ex: "8080" ou "127.0.0.1:8080"
+        std::string listen = server.listen[0];
 
         if (listen.empty())
         {
@@ -107,6 +107,13 @@ int MasterServer::createListenSocketForPort(const std::string &_listen)
     {
         ip   = _listen.substr(0, colon);
         port = _listen.substr(colon + 1);
+    }
+
+    if (port.empty())
+    {
+        Logger::log(Logger::ERROR,
+            "Diretiva listen inválida (porta ausente): " + _listen);
+        return (-1);
     }
 
     struct addrinfo hints;
