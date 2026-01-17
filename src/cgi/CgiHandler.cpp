@@ -113,14 +113,7 @@ static std::vector<std::string> buildEnv(
     addHttpHeaders(req, env);
 
     if (cgiConfig.extension == ".php")
-    {
         addPhpVars(env);
-    }
-    // else if (cgiConfig.cgi_extension == ".py")
-    // {
-    //     addPythonVars(env);
-    // }
-
     return env;
 }
 
@@ -159,8 +152,6 @@ CgiResult   CgiHandler::execute(const Request &req,
     }
     else
         interpreter = cgiConfig.path;
-
-    //Logger::log(Logger::INFO, "CGI Interpreter: " + interpreter);
 
     if (interpreter.empty())
     {
@@ -272,12 +263,8 @@ CgiResult   CgiHandler::execute(const Request &req,
                                state->pending_write.size());
         
         if (written > 0)
-        {
             state->write_offset = written;
-            /*Logger::log(Logger::INFO, "CGI: Escritos " + Utils::toString(written) + 
-                       " de " + Utils::toString(state->pending_write.size()) + " bytes no stdin");*/
-        }
-        else if (written < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
+        else if (written < 0)
         {
             Logger::log(Logger::ERROR, "CGI: Erro ao escrever no stdin: " + 
                        std::string(strerror(errno)));

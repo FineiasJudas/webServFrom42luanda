@@ -258,11 +258,7 @@ void    MasterServer::handleRead(int clientFd)
         return ;
     }
     else if (n < 0)
-    {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) 
-            closeConnection(clientFd);
-        return ;
-    }
+        return closeConnection(clientFd);
 
     if (conn->getInputBuffer().size() > (max_body + 8192))
     {
@@ -403,16 +399,9 @@ void    MasterServer::handleWrite(int clientFd)
     if (sent > 0)
         out.consume(sent);
     else if (sent == 0)
-    {
-        closeConnection(clientFd);
-        return ;
-    }
+        return closeConnection(clientFd);
     else if (sent < 0)
-    {
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
-            closeConnection(clientFd);
-        return ;
-    }
+        return closeConnection(clientFd);
 
     if (conn->shouldCloseAfterSend() && out.empty())
         return closeConnection(clientFd);
@@ -447,7 +436,7 @@ void    MasterServer::handleCgiRead(int cgiFd)
     
     if (n > 0)
         conn->cgi_state->output.append(buffer, n);
-    else if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK))
+    else if (n == 0 || (n < 0))
     {
         // EOF ou erro - CGI terminou de escrever
         poller.removeFd(cgiFd);
@@ -465,8 +454,6 @@ void    MasterServer::handleCgiRead(int cgiFd)
             (void)exit_code;
             finalizeCgi(clientFd);
         }
-        else if (result == 0)
-            ;
     }
 }
 
@@ -521,17 +508,11 @@ void    MasterServer::handleCgiWrite(int cgiFd)
     }
     else if (written < 0)
     {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            // Pipe cheio, tentar depois
-            ;
-        else
-        {
-            poller.removeFd(cgiFd);
-            close(cgiFd);
-            cgiFdToClientFd.erase(cgiFd);
-            state->stdin_fd = -1;
-            state->stdin_closed = true;
-        }
+        poller.removeFd(cgiFd);
+        close(cgiFd);
+        cgiFdToClientFd.erase(cgiFd);
+        state->stdin_fd = -1;
+        state->stdin_closed = true;
     }
 }
 

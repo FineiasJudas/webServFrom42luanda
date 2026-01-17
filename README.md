@@ -1,6 +1,4 @@
-# webserv 42
-
-*This project was developed as part of the 42 curriculum by fjilaias, manandre, and alde-jes.*
+*This project has been created as part of the 42 curriculum by fjilaias, manandre, and alde-jes.*
 
 ## **Description**
 
