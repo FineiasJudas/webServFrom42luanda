@@ -86,3 +86,28 @@ curl http://localhost:8080
 ### **How AI was used**
 
 During the development of **webserv**, AI was used only to generate ideas, support function testing, and clarify concepts. All code was reviewed, tested, and discussed among the team, ensuring full understanding and complete control over the project.
+
+For example:
+
+Initially, in the `createListenSockets` function, we accepted malformed listening arrangements, such as `listen 127.0.0.1:`, without a port. We didn't handle IP+PORT and used a prohibited function, `inet_addr`, to associate the IP with the PORT, configuring the Socket address.
+
+But after studies and consultations, we found a way to use an alternative function for this purpose, `getaddrinfo`,
+
+`
+addrinfo structure hints;
+struct addrinfo *res;
+
+std::memset(&hints, 0, sizeof(hints));
+hints.ai_family = AF_INET;
+hints.ai_socktype = SOCK_STREAM;
+hints.ai_flags = AI_PASSIVE;
+
+  int ret = getaddrinfo(
+ip == "0.0.0.0"? NULL: ip.c_str(),
+porta.c_str(),
+and hints,
+&res);
+
+`
+
+which retrieves information from the associated socket in a `struct addrinfo res` structure, allowing the creation of a socket that accepts a PORT or IP+PORT `int fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);`

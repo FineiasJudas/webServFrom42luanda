@@ -2,9 +2,7 @@
 
 $MAX_SIZE = 10 * 1024 * 1024;
 
-/* ============================
-   Detectar formato de resposta
-   ============================ */
+/* Detectar formato de resposta */
 $format = $_GET['format'] ?? '';
 $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
 
@@ -19,9 +17,7 @@ if ($format === 'plain')
 
 header("Content-Type: $responseType; charset=UTF-8");
 
-/* ============================
-   Helpers de resposta
-   ============================ */
+/* Helpers de resposta */
 function respond($status, $message, $extra = [])
 {
     http_response_code($status);
@@ -47,9 +43,7 @@ function respond($status, $message, $extra = [])
     exit;
 }
 
-/* ============================
-   Validações
-   ============================ */
+/* Validações */
 if ($_SERVER['REQUEST_METHOD'] !== 'POST')
     respond(405, 'Método não permitido');
 
@@ -63,9 +57,7 @@ if ($_FILES['file']['error'] !== UPLOAD_ERR_OK) {
 if ($_FILES['file']['size'] > $MAX_SIZE)
     respond(413, 'Arquivo excede o limite de 10MB');
 
-/* ============================
-   Upload
-   ============================ */
+/* Upload */
 $projectRoot = dirname(dirname(__DIR__));
 $uploadDir   = $projectRoot . "/uploads";
 
@@ -78,9 +70,7 @@ $target = $uploadDir . "/" . $name;
 if (!move_uploaded_file($_FILES['file']['tmp_name'], $target))
     respond(500, 'Falha ao salvar o arquivo');
 
-/* ============================
-   Resposta final
-   ============================ */
+/* Resposta final */
 if ($responseType === 'text/html' && file_exists(__DIR__ . "/sucessUpload.html"))
 {
     readfile(__DIR__ . "/sucessUpload.html");

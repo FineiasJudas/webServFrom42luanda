@@ -97,8 +97,8 @@ void    MasterServer::createListenSockets(std::vector<ServerConfig> &servers)
 
 int MasterServer::createListenSocketForPort(const std::string &_listen)
 {
-    std::string ip = "0.0.0.0";
-    std::string port;
+    std::string     ip = "0.0.0.0";
+    std::string     port;
 
     size_t colon = _listen.find(':');
     if (colon == std::string::npos)
@@ -253,10 +253,7 @@ void    MasterServer::handleRead(int clientFd)
     
     ssize_t n = conn->readFromFd();
     if (n == 0)
-    {
-        closeConnection(clientFd);
-        return ;
-    }
+        return closeConnection(clientFd);
     else if (n < 0)
         return closeConnection(clientFd);
 
@@ -311,7 +308,7 @@ void    MasterServer::handleRead(int clientFd)
             return ;
         }
 
-        ServerConfig *sc = selectServerForRequest(req, conn->getListenFd());
+        ServerConfig    *sc = selectServerForRequest(req, conn->getListenFd());
         conn->setServer(sc);
 
         std::string connHdr;
