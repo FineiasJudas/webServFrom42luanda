@@ -49,13 +49,15 @@ static std::string normalizeHeaderKey(const std::string &key)
     return up;
 }
 
-static void addBasicVars(const Request &req, std::vector<std::string> &env)
+static void addBasicVars(const Request &req, std::vector<std::string> &env, const std::string upload_dir)
 {
     env.push_back("GATEWAY_INTERFACE=CGI/1.1");
     env.push_back("SERVER_PROTOCOL=" + req.version);
     env.push_back("REQUEST_METHOD=" + req.method);
     env.push_back("SERVER_SOFTWARE=webserv/1.0");
     env.push_back("REDIRECT_STATUS=200");
+    env.push_back("UPLOAD_DIR="+upload_dir);
+
 }
 
 static void addScriptVars(const std::string &script_path, std::vector<std::string> &env)
@@ -101,12 +103,13 @@ static std::vector<std::string> buildEnv(
     const Request &req,
     const std::string &script_path,
     const ServerConfig &config,
-    const CgiConfig &cgiConfig)
+    const CgiConfig &cgiConfig,
+    const std::string upload_dir)
 {
     (void)config;
     std::vector<std::string> env;
 
-    addBasicVars(req, env);
+    addBasicVars(req, env, upload_dir);
     addScriptVars(script_path, env);
     addUriVars(req, env);
     addContentVars(req, env);
@@ -172,7 +175,7 @@ CgiResult   CgiHandler::execute(const Request &req,
     // ------------------ BUILD ENV -----------------------
     // Instead of strdup (POSIX), keep std::string storage and use c_str() pointers.
     // In C++98, c_str() returns const char*, so we cast away const for execve.
-    std::vector<std::string> env_storage = buildEnv(req, script_path, config, cgiConfig);
+    std::vector<std::string> env_storage = buildEnv(req, script_path, config, cgiConfig, loc.upload_dir);
     std::vector<char *> envp;
     envp.reserve(env_storage.size() + 1);
     for (size_t i = 0; i < env_storage.size(); ++i)
