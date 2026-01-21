@@ -1,59 +1,62 @@
 <?php
-header("Content-Type: text/plain; charset=UTF-8");
+header("Content-Type: application/json; charset=UTF-8");
 
-$uploadDir_ = getenv('UPLOAD_DIR');
-if (empty($uploadDir_)) {$uploadDir_ = "/uploads_";}
-$uploadDir = $uploadDir_;
-// aceita SOMENTE DELETE
+// ===== SOMENTE DELETE =====
 if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
     http_response_code(405);
-    echo "Método não permitido.";
+    echo json_encode(['error' => 'Método não permitido']);
     exit;
 }
 
-//ler o corpo da requisição DELETE
-$rawInput = file_get_contents("php://input");
-parse_str($rawInput, $data);
+// ===== LER BODY =====
+parse_str(file_get_contents("php://input"), $data);
 
-// verifica se o arquivo foi enviado
-if (!isset($data['file']) || empty($data['file'])) {
+if (empty($data['file'])) {
     http_response_code(400);
-    echo "Arquivo não especificado.";
+    echo json_encode(['error' => 'Arquivo não especificado']);
     exit;
 }
 
-// raiz do projeto
+// ===== PROJECT ROOT =====
 $projectRoot = dirname(dirname(__DIR__));
-$fullUploadDir   = $projectRoot . $uploadDir;//"/uploads";
 
-// segurança contra path traversal
+// ===== UPLOAD DIR (ENV) =====
+$uploadDirEnv = getenv('UPLOAD_DIR') ?: 'uploads_';
+$uploadDirEnv = trim($uploadDirEnv, '/');
+
+// ===== PATH FÍSICO =====
+$uploadDir = $projectRoot . '/' . $uploadDirEnv;
+
+// ===== GARANTIR QUE EXISTE =====
+$realUploadDir = realpath($uploadDir);
+if ($realUploadDir === false) {
+    http_response_code(500);
+    echo json_encode(['error' => 'Diretório de upload inválido']);
+    exit;
+}
+
+// ===== SEGURANÇA =====
 $fileName = basename($data['file']);
-$filePath = $fullUploadDir . "/" . $fileName;
-
-// garante que está dentro da pasta uploads
-$realUploadDir = realpath($fullUploadDir);
-$realFilePath  = realpath($filePath);
+$filePath = $realUploadDir . '/' . $fileName;
+$realFilePath = realpath($filePath);
 
 if ($realFilePath === false || strpos($realFilePath, $realUploadDir) !== 0) {
     http_response_code(403);
-    echo "Acesso negado.";
+    echo json_encode(['error' => 'Acesso negado']);
     exit;
-
-
 }
 
-//verifica existencia
+// ===== EXISTE? =====
 if (!file_exists($realFilePath)) {
     http_response_code(404);
-    echo "Arquivo não encontrado.";
+    echo json_encode(['error' => 'Arquivo não encontrado']);
     exit;
 }
 
-//tenta excluir
+// ===== DELETE =====
 if (unlink($realFilePath)) {
-    echo "Arquivo excluído com sucesso.";
+    echo json_encode(['success' => true]);
 } else {
     http_response_code(500);
-    echo "Falha ao excluir o arquivo.";
+    echo json_encode(['error' => 'Falha ao excluir arquivo']);
 }
-?>  

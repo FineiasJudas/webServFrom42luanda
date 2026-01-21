@@ -6,13 +6,14 @@ $MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 $format = $_GET['format'] ?? '';
 $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
 
-if ($format === 'plain') {
+if (strpos($accept, 'application/json') !== false) {
+    $responseType = 'application/json';
+} else if ($format === 'plain') {
     $responseType = 'text/plain';
-} else if (strpos($accept, 'text/html') !== false) {
-    $responseType = 'text/html';
 } else {
-    $responseType = 'text/plain';
+    $responseType = 'text/html';
 }
+
 
 header("Content-Type: $responseType; charset=UTF-8");
 
@@ -50,12 +51,13 @@ if ($_FILES['file']['size'] > $MAX_SIZE)
     respond(413, 'Arquivo excede o limite de 10MB');
 
 /* Definir diretório de upload usando variável de ambiente */
-$projectRoot = dirname(dirname(__DIR__));
-$uploadDir_ = getenv('UPLOAD_DIR') ?: "/uploads_";
-$uploadDir = $projectRoot . $uploadDir_;
+$projectRoot = rtrim(dirname(dirname(__DIR__)), '/');
+$uploadDir_  = trim(getenv('UPLOAD_DIR') ?: 'uploads_tmp', '/');
+
+$uploadDir = $projectRoot . '/' . $uploadDir_;
 
 if (!is_dir($uploadDir)) {
-    mkdir($uploadDir, 0755, true);
+    mkdir($uploadDir, 0755, false);
 }
 
 /* Preparar nome do arquivo com timestamp */

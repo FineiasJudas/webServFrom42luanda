@@ -56,6 +56,9 @@ static void addBasicVars(const Request &req, std::vector<std::string> &env, cons
     env.push_back("REQUEST_METHOD=" + req.method);
     env.push_back("SERVER_SOFTWARE=webserv/1.0");
     env.push_back("REDIRECT_STATUS=200");
+    
+    Logger::log(Logger::INFO, "CGI :::: Erro ao escrever no stdin: " + 
+                upload_dir);
     env.push_back("UPLOAD_DIR="+upload_dir);
 
 }

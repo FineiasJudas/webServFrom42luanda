@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <link rel="stylesheet"
     href="https://cdnjs.cloudflare.com/ajax/libs/carbon-components/10.58.12/css/carbon-components.min.css">
   <title>Uploads</title>
@@ -22,6 +23,10 @@
       padding: 0;
     }
 
+    /* Forçar SweetAlert sempre acima de modais */
+    .swal2-container {
+      z-index: 20000 !important;
+    }
     body {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
       background: #f3f4f6;
@@ -443,21 +448,84 @@
 
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-    function validateFileSize(input) {
-      const file = input.files[0];
-      if (!file) return;
+  function validateFileSize(input) {
+    const file = input.files[0];
+    if (!file) return;
 
-      if (file.size > MAX_FILE_SIZE) {
-        alert("Arquivo muito grande! Máximo permitido: 5MB.");
-        input.value = "";
-      }
+    if (file.size > MAX_FILE_SIZE) {
+      //SweetAlert
+      Swal.fire({
+        icon: 'warning',
+        title: 'Arquivo muito grande',
+        text: 'O tamanho máximo permitido é 5MB.',
+        confirmButtonColor: '#4f46e5'
+      });
+
+      input.value = ""; // limpa o input
     }
+  }
 
-    form.addEventListener('submit', function () {
-      submitBtn.disabled = true; // desabilita o botão
-      //inputUpload.disabled = true; // desabilita o input
-      loading.style.display = 'block'; // mostra o loading
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault(); // impede submit normal
+
+      submitBtn.disabled = true;
+
+      // SweetAlert carregando
+      Swal.fire({
+        title: 'Enviando arquivo...',
+        html: 'Por favor, aguarde.',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const formData = new FormData(form);
+
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.message || 'Erro no upload');
+        }
+
+        // SUCESSO
+        Swal.fire({
+          icon: 'success',
+          title: 'Upload concluído',
+          text: data.message || 'Arquivo enviado com sucesso!',
+          confirmButtonColor: '#4f46e5'
+        });
+
+        form.reset();
+        modal.style.display = "none";
+        loadFiles(); // recarrega lista
+
+      } catch (err) {
+        // ERRO
+        Swal.fire({
+          icon: 'error',
+          title: 'Falha no upload',
+          text: err.message || 'Erro inesperado',
+          confirmButtonColor: '#dc2626'
+        });
+
+      } finally {
+        submitBtn.disabled = false;
+      }
     });
+
+
 
 
     openBtn.onclick = () => {
@@ -488,9 +556,7 @@
           window.location.href = './uploads.html';
         } else if (item.id == 'sobre') {
           window.location.href = '../about.html';
-        } else if (item.id == 'contato') {
-          window.location.href = '../contact.html';
-        }
+        } else if (item.id == 'contato') {window.location.href = '../contact.html';}
         else if (item.id == 'sessions') {
           window.location.href = '../sessions.html';
         }
@@ -560,29 +626,59 @@
       }
     }
 
-    // ==== Deletar arquivo ====
+      // ==== Deletar arquivo com SweetAlert ====
     async function deleteFile(filename) {
-      if (!confirm("Deseja realmente apagar " + filename + "?"))
-        return;
+      // Confirmação com SweetAlert
+      const result = await Swal.fire({
+        title: 'Tem certeza?',
+        text: `Deseja realmente apagar "${filename}"?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sim, deletar!',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (!result.isConfirmed) return; //usuário cancelou
 
       try {
         const res = await fetch('/cgi-bin/php/delete_file.php', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: 'file=' + encodeURIComponent(filename)
-        })
+        });
+
         if (res.ok) {
-          alert("Arquivo deletado!");
-          loadFiles();
+          //Sucesso
+          Swal.fire({
+            icon: 'success',
+            title: 'Arquivo deletado!',
+            text: `"${filename}" foi removido com sucesso.`,
+            confirmButtonColor: '#4f46e5'
+          });
+          loadFiles(); //recarrega a lista
         } else {
-          alert("Erro ao deletar...");
+          // Erro
+          Swal.fire({
+            icon: 'error',
+            title: 'Erro',
+            text: 'Não foi possível deletar o arquivo.',
+            confirmButtonColor: '#dc2626'
+          });
         }
       } catch (err) {
-        console.log("Erro ao deletar...." + err);
+        Swal.fire({
+          icon: 'error',
+          title: 'Erro',
+          text: 'Erro ao deletar: ' + err.message,
+          confirmButtonColor: '#dc2626'
+        });
       }
     }
 
-    // carregar a página
+
+    // carregar página
     loadFiles();
   </script>
 </body>
