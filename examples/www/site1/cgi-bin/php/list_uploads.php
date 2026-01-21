@@ -1,26 +1,26 @@
 <?php
 header("Content-Type: application/json; charset=UTF-8");
 
-// ===== PROJECT ROOT =====
+// - PROJECT ROOT -
 $projectRoot = dirname(dirname(__DIR__));
 
-// ===== UPLOAD DIR (ENV) =====
+// - UPLOAD DIR (ENV) -
 $uploadDirEnv = getenv('UPLOAD_DIR') ?: 'uploads_';
 $uploadDirEnv = trim($uploadDirEnv, '/');
 
-// ===== PATH FÍSICO =====
+// - PATH FISICO -
 $uploadDir = $projectRoot . '/' . $uploadDirEnv;
 
-// ===== URL PÚBLICA =====
+// - URL PUBLICA -
 $uploadUrl = '/' . $uploadDirEnv;
 
-// ===== CHECK =====
+// - CHECK -
 if (!is_dir($uploadDir)) {
     echo json_encode(['files' => []]);
     exit;
 }
 
-// ===== LIST FILES =====
+// - LIST FILES -
 $files = array_diff(scandir($uploadDir), ['.', '..']);
 $data = [];
 

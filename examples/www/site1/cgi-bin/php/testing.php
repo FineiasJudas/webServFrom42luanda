@@ -1,221 +1,146 @@
+#!/usr/bin/php
 <?php
-header("Content-Type: text/plain; charset=UTF-8");
+header("Content-Type: text/html; charset=UTF-8");
 
-echo "=== PHP CGI TEST ===\n\n";
+// Variáveis de ambiente
+$env_vars = [
+    "GATEWAY_INTERFACE" => getenv("GATEWAY_INTERFACE"),
+    "SERVER_PROTOCOL" => getenv("SERVER_PROTOCOL"),
+    "REQUEST_METHOD" => getenv("REQUEST_METHOD"),
+    "SERVER_SOFTWARE" => getenv("SERVER_SOFTWARE"),
+    "REDIRECT_STATUS" => getenv("REDIRECT_STATUS"),
+    "UPLOAD_DIR" => getenv("UPLOAD_DIR"),
+    "SCRIPT_NAME" => getenv("SCRIPT_NAME"),
+    "QUERY_STRING" => getenv("QUERY_STRING"),
+];
 
-/* ============================
-   Variáveis de ambiente CGI
-   ============================ */
-$method = getenv("REQUEST_METHOD");
-$contentType = getenv("CONTENT_TYPE");
-$contentLength = intval(getenv("CONTENT_LENGTH"));
+// Parâmetros GET
+parse_str(getenv("QUERY_STRING"), $params);
+$nome = isset($params['nome']) ? htmlspecialchars($params['nome']) : "Fulano";
 
-echo "REQUEST_METHOD: $method\n";
-echo "CONTENT_TYPE: $contentType\n";
-echo "CONTENT_LENGTH: $contentLength\n";
-echo "QUERY_STRING: " . getenv("QUERY_STRING") . "\n";
-echo "SCRIPT_NAME: " . getenv("SCRIPT_NAME") . "\n";
-echo "SCRIPT_FILENAME: " . getenv("SCRIPT_FILENAME") . "\n";
-echo "REQUEST_URI: " . getenv("REQUEST_URI") . "\n";
-echo "DOCUMENT_ROOT: " . getenv("DOCUMENT_ROOT") . "\n\n";
-
-/* ============================
-   Processar POST
-   ============================ */
-if ($method !== "POST")
-{
-    echo "Não é POST. Nada a processar.\n";
-    exit(0);
-}
-
-if ($contentLength <= 0)
-{
-    echo "POST sem conteúdo (Content-Length = 0).\n";
-    exit(0);
-}
-// Ler raw input
-$rawData = file_get_contents("php://input", false, null, 0, $contentLength);
-$actualSize = strlen($rawData);
-
-echo "DADOS RECEBIDOS: $actualSize bytes\n\n";
-
-/* ============================
-   Detectar tipo de conteúdo
-   ============================ */
-$projectRoot = dirname(dirname(__DIR__));
-$uploadDir = $projectRoot . "/uploads";
-
-// Criar diretório se não existir
-if (!is_dir($uploadDir))
-    mkdir($uploadDir, 0755, true);
-
-$saved = false;
-$savedPath = "";
-
-// 1️MULTIPART/FORM-DATA
-if (stripos($contentType, 'multipart/form-data') !== false)
-{
-    echo "TIPO: Multipart Form Data\n";
-    
-    if (isset($_FILES['file']))
-    {
-        $fileName = basename($_FILES['file']['name']);
-        $tmpName = $_FILES['file']['tmp_name'];
-        $fileSize = $_FILES['file']['size'];
-        $error = $_FILES['file']['error'];
-        
-        echo "   Arquivo: $fileName\n";
-        echo "   Tamanho: $fileSize bytes\n";
-        echo "   Error Code: $error\n";
-        
-        if ($error === UPLOAD_ERR_OK)
-        {
-            $savedPath = $uploadDir . "/" . $fileName;
-            if (move_uploaded_file($tmpName, $savedPath))
-            {
-                echo " Salvo em: $savedPath!\n";
-                $saved = true;
-            }
-            else
-            {
-                echo " Erro ao salvar arquivo\n";
-            }
-        }
-    }
-    else
-    {
-        echo "  Nenhum arquivo detectado em \$_FILES\n";
-    }
-}
-
-// 2 APPLICATION/JSON
-else if (stripos($contentType, 'application/json') !== false)
-{
-    echo " TIPO: JSON\n";
-    
-    $json = json_decode($rawData, true);
-    
-    if ($json !== null)
-    {
-        echo "   JSON válido com " . count($json) . " campos:\n";
-        echo "   " . json_encode($json, JSON_PRETTY_PRINT) . "\n";
-    }
-    else
-    {
-        echo "  JSON inválido\n";
-        echo "   Raw: " . substr($rawData, 0, 200) . "...\n";
-    }
-}
-
-// 3 APPLICATION/OCTET-STREAM ou BINARY
-else if (
-    stripos($contentType, 'application/octet-stream') !== false ||
-    stripos($contentType, 'image/') !== false ||
-    stripos($contentType, 'video/') !== false ||
-    stripos($contentType, 'audio/') !== false ||
-    stripos($contentType, 'application/pdf') !== false ||
-    stripos($contentType, 'application/zip') !== false
-)
-{
-    echo " TIPO: Binário ($contentType)\n";
-    
-    // Gerar nome baseado em timestamp + tipo
-    $ext = "bin";
-    
-    if (stripos($contentType, 'image/png') !== false) $ext = "png";
-    else if (stripos($contentType, 'image/jpeg') !== false) $ext = "jpg";
-    else if (stripos($contentType, 'image/gif') !== false) $ext = "gif";
-    else if (stripos($contentType, 'application/pdf') !== false) $ext = "pdf";
-    else if (stripos($contentType, 'application/zip') !== false) $ext = "zip";
-    else if (stripos($contentType, 'video/mp4') !== false) $ext = "mp4";
-    else if (stripos($contentType, 'audio/mpeg') !== false) $ext = "mp3";
-    
-    $fileName = "binary_" . time() . "_" . rand(1000, 9999) . "." . $ext;
-    $savedPath = $uploadDir . "/" . $fileName;
-    
-    if (file_put_contents($savedPath, $rawData) !== false)
-    {
-        echo " Salvo em: $savedPath\n";
-        echo "   Tamanho: " . filesize($savedPath) . " bytes\n";
-        $saved = true;
-    }
-    else
-    {
-        echo " Erro ao salvar\n";
-    }
-}
-
-// 4 APPLICATION/X-WWW-FORM-URLENCODED
-else if (stripos($contentType, 'application/x-www-form-urlencoded') !== false)
-{
-    echo " TIPO: Form URL Encoded\n";
-    
-    parse_str($rawData, $formData);
-    
-    echo "   Campos recebidos:\n";
-    foreach ($formData as $key => $value)
-    {
-        echo "   - $key = " . substr($value, 0, 100) . "\n";
-    }
-}
-
-// 5 TEXT/PLAIN ou outro
-else
-{
-    echo " TIPO: Texto ou desconhecido ($contentType)\n";
-    
-    // Verificar se parece binário
-    $isBinary = false;
-    for ($i = 0; $i < min(512, $actualSize); $i++)
-    {
-        $byte = ord($rawData[$i]);
-        if ($byte < 32 && $byte != 9 && $byte != 10 && $byte != 13)
-        {
-            $isBinary = true;
-            break;
-        }
-    }
-    
-    if ($isBinary)
-    {
-        echo "  Parece ser binário, salvando como .bin\n";
-        
-        $fileName = "unknown_" . time() . "_" . rand(1000, 9999) . ".bin";
-        $savedPath = $uploadDir . "/" . $fileName;
-        
-        if (file_put_contents($savedPath, $rawData) !== false)
-        {
-            echo " Salvo em: $savedPath\n";
-            $saved = true;
-        }
-    }
-    else
-    {
-        echo " Conteúdo texto:\n";
-        echo "   " . substr($rawData, 0, 500) . "\n";
-        if ($actualSize > 500)
-            echo "   ... (+" . ($actualSize - 500) . " bytes)\n";
-    }
-}
-
-/* ============================
-   Resumo final
-   ============================ */
-echo "\n" . str_repeat("=", 50) . "\n";
-echo "RESUMO:\n";
-echo "- Bytes recebidos: $actualSize\n";
-echo "- Tipo detectado: $contentType\n";
-
-if ($saved)
-{
-    echo "- Arquivo salvo: \n";
-    echo "- Localização: $savedPath\n";
-    echo "- Tamanho final: " . filesize($savedPath) . " bytes\n";
-}
-else
-{
-    echo "- Arquivo salvo: (não aplicável ou erro)\n";
-}
-
-echo str_repeat("=", 50) . "\n";
+// Cores
+$primaryColor = "#4f46e5"; // cor do sinalizador
+$textColor = "#161616";
+$bgColor = "#a5b3b1b8";
 ?>
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Olá, <?php echo $nome; ?>!</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/carbon-components/10.58.12/css/carbon-components.min.css">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    background: <?php echo $bgColor; ?>;
+    color: <?php echo $textColor; ?>;
+    margin: 0;
+    padding: 2rem;
+}
+
+h1 { font-size: 2.5rem; margin-bottom: 1rem; color: <?php echo $primaryColor; ?>; }
+
+.example-box {
+    background: #ffffff;
+    border-left: 4px solid <?php echo $primaryColor; ?>;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #161616;
+}
+
+.example-box p { margin: 0.25rem 0; }
+.example-box code {
+    background: #e5e7eb;
+    color: #161616;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.9rem;
+}
+
+.env-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.env-table th, .env-table td {
+    border: 1px solid rgba(0,0,0,0.1);
+    padding: 0.5rem 0.75rem;
+}
+
+.env-table th {
+    background-color: rgba(79,70,229,0.1);
+}
+</style>
+</head>
+<body>
+
+<h1>Olá, <?php echo $nome; ?>! 👋</h1>
+
+<div class="example-box">
+    <p>💡 Você pode adicionar parâmetros na URL depois da URI:</p>
+    <p>Exemplo: <code>URI?nome=manandre&peso=70&altura=1.75</code></p>
+</div>
+
+<?php if (!empty($params)): ?>
+    <div class="example-box">✨ Parâmetros GET recebidos: <?php echo count($params); ?> ✨</div>
+
+    <div class="example-box">
+        <ul>
+        <?php foreach ($params as $k => $v): ?>
+            <li><?php echo htmlspecialchars($k); ?> = <?php echo htmlspecialchars($v); ?></li>
+        <?php endforeach; ?>
+        </ul>
+    </div>
+
+    <?php
+    if (isset($params['peso']) && isset($params['altura'])) {
+        $peso = floatval($params['peso']);
+        $altura = floatval($params['altura']);
+        if ($altura > 0) {
+            $imc = $peso / ($altura * $altura);
+            echo "<div class='example-box'><p>IMC calculado: " . round($imc,2) . "</p>";
+
+            if ($imc < 18.5) echo "<p>Classificação: Abaixo do peso</p>";
+            else if ($imc < 25) echo "<p>Classificação: Peso normal</p>";
+            else if ($imc < 30) echo "<p>Classificação: Sobrepeso</p>";
+            else if ($imc < 35) echo "<p>Classificação: Obesidade grau I</p>";
+            else if ($imc < 40) echo "<p>Classificação: Obesidade grau II</p>";
+            else echo "<p>Classificação: Obesidade grau III</p>";
+
+            echo "</div>";
+        } else {
+            echo "<div class='example-box'><p>Altura inválida.</p></div>";
+        }
+    } else {
+        echo "<div class='example-box'><p>ℹ Informe os parâmetros <code>peso</code> e <code>altura</code> na URL para calcular o IMC.</p></div>";
+    }
+    ?>
+<?php endif; ?>
+
+<div class="example-box">
+    <p>Variáveis de ambiente recebidas pelo CGI:</p>
+    <table class="env-table">
+        <tr>
+            <th>Variável</th>
+            <th>Valor</th>
+        </tr>
+        <?php foreach ($env_vars as $key => $value): ?>
+        <tr>
+            <td><?php echo htmlspecialchars($key); ?></td>
+            <td><?php echo htmlspecialchars($value); ?></td>
+        </tr>
+        <?php endforeach; ?>
+    </table>
+</div>
+
+</body>
+</html>

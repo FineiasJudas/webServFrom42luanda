@@ -1,15 +1,69 @@
 <!DOCTYPE html>
 <html lang="pt">
+
 <head>
     <meta charset="UTF-8">
-    <title>Simulação GET</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversor GET - CGI em C</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            margin: 2rem;
+            color: #161616;
+        }
+
+        h2 {
+            color: #4f46e5;
+            margin-bottom: 1rem;
+        }
+
+        form {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 400px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            background: #4f46e5;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        button:hover {
+            background: #3730a3;
+        }
+    </style>
 </head>
+
 <body>
     <h2>Formulário GET - Conversor</h2>
 
-    <form action="http://localhost:8080/cgi-bin/c/conversor.cgi" method="GET">
+    <form id="convertForm">
         <label for="input1">Valor:</label>
-        <input type="text" id="input1" name="value"><br><br>
+        <input type="text" id="input1" name="value" placeholder="Digite o valor">
 
         <label for="unit">Unidade:</label>
         <select id="unit" name="unit">
@@ -18,9 +72,77 @@
             <option value="km">Quilômetros (km)</option>
             <option value="kg">Quilogramas (kg)</option>
             <option value="g">Gramas (g)</option>
-        </select><br><br>
+        </select>
 
-        <button type="submit">Enviar</button>
+        <button type="submit">Converter</button>
     </form>
+
+    <script>
+        const form = document.getElementById('convertForm');
+
+       form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const value = document.getElementById('input1').value;
+            const unit = document.getElementById('unit').value;
+
+            if (!value || !unit) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Atenção',
+                    text: 'Preencha todos os campos antes de enviar!'
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Aguarde...',
+                text: 'Processando a conversão...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading() }
+            });
+
+            try {
+                const url = `/cgi-bin/c/conversor.cgi?value=${encodeURIComponent(value)}&unit=${encodeURIComponent(unit)}`;
+                const response = await fetch(url);
+                const data = await response.json(); // <- JSON
+
+                Swal.close();
+
+                if (data.error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Erro',
+                        text: data.error
+                    });
+                    return;
+                }
+
+                // Monta HTML do resultado
+                let html = `<p>Valor original: ${data.original.value} ${data.original.unit}</p>`;
+                html += '<ul>';
+                for (const key in data.conversions) {
+                    html += `<p>${key}: ${data.conversions[key]}</p>`;
+                }
+                html += '</ul>';
+
+                Swal.fire({
+                    title: 'Resultado da Conversão',
+                    html: html,
+                    width: '600px'
+                });
+            } catch (err) {
+                Swal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro',
+                    text: 'Não foi possível processar a requisição.'
+                });
+                console.error(err);
+            }
+        });
+
+    </script>
 </body>
+
 </html>

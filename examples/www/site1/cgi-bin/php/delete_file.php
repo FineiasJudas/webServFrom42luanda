@@ -1,14 +1,14 @@
 <?php
 header("Content-Type: application/json; charset=UTF-8");
 
-// ===== SOMENTE DELETE =====
+// - SOMENTE DELETE OUVIU? -
 if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
     http_response_code(405);
     echo json_encode(['error' => 'Método não permitido']);
     exit;
 }
 
-// ===== LER BODY =====
+// - LER BODY -
 parse_str(file_get_contents("php://input"), $data);
 
 if (empty($data['file'])) {
@@ -17,17 +17,17 @@ if (empty($data['file'])) {
     exit;
 }
 
-// ===== PROJECT ROOT =====
+// - PROJECT ROOT -
 $projectRoot = dirname(dirname(__DIR__));
 
-// ===== UPLOAD DIR (ENV) =====
+// - UPLOAD DIR (ENV) -
 $uploadDirEnv = getenv('UPLOAD_DIR') ?: 'uploads_';
 $uploadDirEnv = trim($uploadDirEnv, '/');
 
-// ===== PATH FÍSICO =====
+// - PATH FISICO -
 $uploadDir = $projectRoot . '/' . $uploadDirEnv;
 
-// ===== GARANTIR QUE EXISTE =====
+// - GARANTIR QUE EXISTE -
 $realUploadDir = realpath($uploadDir);
 if ($realUploadDir === false) {
     http_response_code(500);
@@ -35,7 +35,7 @@ if ($realUploadDir === false) {
     exit;
 }
 
-// ===== SEGURANÇA =====
+// - SEGURANÇA -
 $fileName = basename($data['file']);
 $filePath = $realUploadDir . '/' . $fileName;
 $realFilePath = realpath($filePath);
@@ -46,14 +46,14 @@ if ($realFilePath === false || strpos($realFilePath, $realUploadDir) !== 0) {
     exit;
 }
 
-// ===== EXISTE? =====
+// - EXISTE? -
 if (!file_exists($realFilePath)) {
     http_response_code(404);
     echo json_encode(['error' => 'Arquivo não encontrado']);
     exit;
 }
 
-// ===== DELETE =====
+// - DELETE -
 if (unlink($realFilePath)) {
     echo json_encode(['success' => true]);
 } else {
