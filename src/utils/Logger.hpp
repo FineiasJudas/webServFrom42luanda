@@ -47,6 +47,4 @@ class   Logger
 #define LOG_NEW(msg)   Logger::log(Logger::NEW, std::string(__FILE__ ":" STR(__LINE__) " ") + (msg))
 #define LOG_WINT(msg)   Logger::log(Logger::WINT, std::string(__FILE__ ":" STR(__LINE__) " ") + (msg))
 
-
-
 #endif

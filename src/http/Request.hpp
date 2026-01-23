@@ -14,10 +14,9 @@ struct Request
     std::map<std::string, std::string> query;
     std::string body;
     
-    size_t header_end;
+    size_t  header_end;
     bool too_large_body;
     
-    // NOVO:
     bool bad_request;
     std::string bad_request_reason;
     

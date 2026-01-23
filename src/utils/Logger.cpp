@@ -7,7 +7,7 @@
 Logger::LogLevel Logger::currentLevel = Logger::INFO;
 std::ofstream Logger::logFile;
 
-void Logger::init(LogLevel level, const std::string &filename)
+void    Logger::init(LogLevel level, const std::string &filename)
 {
     currentLevel = level;
     if (!filename.empty())
@@ -22,12 +22,10 @@ void Logger::init(LogLevel level, const std::string &filename)
     }
 }
 
-void Logger::shutdown()
+void    Logger::shutdown()
 {
     if (logFile.is_open())
-    {
         logFile.close();
-    }
 }
 
 std::string Logger::levelToString(LogLevel level)
@@ -81,16 +79,15 @@ void Logger::log(LogLevel level, const std::string &message)
     const char* reset = "\x1b[0m";
     switch (level)
     {
-        case DEBUG: color = "\x1b[32m"; break; // cyan
-        case INFO:  color = "\x1b[37m"; break; // green
-        case WARN:  color = "\x1b[33m"; break; // yellow
-        case ERROR: color = "\x1b[31m"; break; // red
-        case NEW:   color = "\x1b[36m"; break; // xxx
-        case WINT:   color = "\x1b[35m"; break; // xxx
+        case DEBUG: color = "\x1b[32m"; break; 
+        case INFO:  color = "\x1b[37m"; break;
+        case WARN:  color = "\x1b[33m"; break; 
+        case ERROR: color = "\x1b[31m"; break; 
+        case NEW:   color = "\x1b[36m"; break; 
+        case WINT:   color = "\x1b[35m"; break;
         default:    color = ""; break;
     }
 
-    // escreve no stdout/stderr com cor
     if (level == ERROR)
         std::cerr << color << out << reset << std::endl;
     else

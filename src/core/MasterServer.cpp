@@ -1,10 +1,10 @@
+#include <netdb.h>
 #include "MasterServer.hpp"
 #include "../utils/Logger.hpp"
 #include "../utils/Utils.hpp"
 #include "../http/HttpParser.hpp"
 #include "../http/Router.hpp"
 #include "../../includes/Headers.hpp"
-#include <netdb.h>
 #include "../exceptions/WebServException.hpp"
 #include "./../utils/keywords.hpp"
 #include "../session/SessionManager.hpp"
@@ -93,7 +93,6 @@ void    MasterServer::createListenSockets(std::vector<ServerConfig> &servers)
             "Servidor escutando em " + listenKey);
     }
 }
-
 
 int MasterServer::createListenSocketForPort(const std::string &_listen)
 {
@@ -212,7 +211,7 @@ void    MasterServer::handleAccept(int listenFd)
 
     clientFd = accept(listenFd, NULL, NULL);
     if (clientFd < 0)
-        return;
+        return ;
 
     flags = fcntl(clientFd, F_GETFL, 0);
     if (flags < 0)
@@ -221,7 +220,7 @@ void    MasterServer::handleAccept(int listenFd)
 
     Connection *c = new Connection(clientFd);
     c->setListenFd(listenFd);
-    c->last_activity_time = time(NULL);
+    c->last_activity_time = std::time(NULL);
     c->waiting_for_write = false;
     c->write_start_time = 0;
     connections[clientFd] = c;
@@ -360,7 +359,7 @@ void    MasterServer::handleRead(int clientFd)
         processed++;
     }
 
-    // CORRIGIDO: Só mudar para escrita se não há CGI pendente
+    // Só mudar para escrita se não há CGI pendente
     if (processed > 0 && !has_pending_cgi)
         poller.modifyFd(clientFd, EPOLLOUT);
 
@@ -388,7 +387,7 @@ void    MasterServer::handleWrite(int clientFd)
     if (!conn->waiting_for_write)
     {
         conn->waiting_for_write = true;
-        conn->write_start_time = time(NULL);
+        conn->write_start_time = std::time(NULL);
     }
 
     ssize_t sent = conn->writeToFd(out.data(), out.size());
@@ -590,7 +589,7 @@ void    MasterServer::closeConnection(int clientFd)
 void    MasterServer::checkTimeouts()
 {
     time_t  idle;
-    time_t  now = time(NULL);
+    time_t  now = std::time(NULL);
 
     std::vector<int> toClose;
 
@@ -624,7 +623,7 @@ void    MasterServer::checkTimeouts()
 
 void    MasterServer::checkCgiTimeouts()
 {
-    time_t now = time(NULL);
+    time_t now = std::time(NULL);
     std::vector<int> to_kill;
     
     for (std::map<int, Connection *>::iterator it = connections.begin();
@@ -669,7 +668,7 @@ void    MasterServer::checkCgiTimeouts()
             
             Response    res;
             res.status = 504;
-            res.body = "<h1>504 CGI Timeout</h1>";
+            res.body = "<h1>504 Gateway Timeout (CGI)</h1>";
             res.headers["Content-Type"] = "text/html";
             res.headers["Content-Length"] = Utils::toString(res.body.size());
             conn->getOutputBuffer().append(res.toString());

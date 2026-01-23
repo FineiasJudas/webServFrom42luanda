@@ -17,7 +17,7 @@ static std::string getExtension(const std::string &path)
     return path.substr(pos);
 }
 
-bool matchLocation(const std::string &uri, const std::string &locPath)
+bool    matchLocation(const std::string &uri, const std::string &locPath)
 {
     if (uri.find(locPath) != 0)
         return (false);
@@ -35,7 +35,7 @@ bool matchLocation(const std::string &uri, const std::string &locPath)
     return (false);
 }
 
-const LocationConfig &findBestLocation(const std::string &uri,
+const LocationConfig    &findBestLocation(const std::string &uri,
                                        const ServerConfig &config)
 {
     const LocationConfig *best = NULL;
@@ -64,7 +64,7 @@ const LocationConfig &findBestLocation(const std::string &uri,
     return (*best);
 }
 
-void parseUri(Request &req)
+void    parseUri(Request &req)
 {
     size_t pos = req.uri.find('?');
 
@@ -255,7 +255,7 @@ Response    Router::route(const Request &req, const ServerConfig &config, Connec
         return r;
 
     /* 2 Encontrar location */
-    const LocationConfig &loc = findBestLocation(rq.uri, config);
+    const LocationConfig    &loc = findBestLocation(rq.uri, config);
 
     /* 3 Redirect */
     if (loc.redirect_code)

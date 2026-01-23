@@ -82,4 +82,4 @@ void    Connection::setCloseAfterSend(bool v) { closeAfterSend = v; }
 
 bool    Connection::shouldCloseAfterSend() const { return closeAfterSend; }
 
-void    Connection::updateActivity() { last_activity_time = time(NULL); }
+void    Connection::updateActivity() { last_activity_time = std::time(NULL); }

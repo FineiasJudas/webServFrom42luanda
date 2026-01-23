@@ -19,22 +19,20 @@ struct SessionData
 
 class SessionManager
 {
-private:
-    std::map<std::string, SessionData> sessions;
-    int timeout;
+    private:
+        std::map<std::string, SessionData> sessions;
+        int timeout;
 
-public:
-    SessionManager(int timeoutSeconds);
+    public:
+        SessionManager(int timeoutSeconds);
 
-    std::string createSession();
-    bool hasSession(const std::string &sid) const;
-    SessionData &getSession(const std::string &sid);
-    void updateSession(const std::string &sid);
-    void saveToFile(const std::string &path);
-    void loadFromFile(const std::string &path);
-
-
-    void cleanup();
+        std::string createSession();
+        bool    hasSession(const std::string &sid) const;
+        SessionData &getSession(const std::string &sid);
+        void    updateSession(const std::string &sid);
+        void    saveToFile(const std::string &path);
+        void    loadFromFile(const std::string &path);
+        void    cleanup();
 };
 
 extern SessionManager g_sessions;

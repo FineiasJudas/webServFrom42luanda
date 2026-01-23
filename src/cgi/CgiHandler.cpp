@@ -217,7 +217,7 @@ CgiResult   CgiHandler::execute(const Request &req,
     state->pid = pid;
     state->stdin_fd = stdin_pipe[1];
     state->stdout_fd = stdout_pipe[0];
-    state->start_time = time(NULL);
+    state->start_time = std::time(NULL);
     state->stdin_closed = false;
     state->write_offset = 0;
 

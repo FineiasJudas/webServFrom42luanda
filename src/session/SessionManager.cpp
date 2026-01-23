@@ -71,7 +71,9 @@ void    SessionManager::cleanup()
 void    SessionManager::saveToFile(const std::string &path)
 {
     std::ofstream f(path.c_str());
-    if (!f.is_open()) return;
+
+    if (!f.is_open())
+        return ;
 
     std::map<std::string, SessionData>::iterator it;
     for (it = sessions.begin(); it != sessions.end(); ++it)
@@ -84,10 +86,12 @@ void    SessionManager::saveToFile(const std::string &path)
     }
 }
 
-void SessionManager::loadFromFile(const std::string &path)
+void    SessionManager::loadFromFile(const std::string &path)
 {
     std::ifstream f(path.c_str());
-    if (!f.is_open()) return;
+
+    if (!f.is_open())
+        return ;
 
     sessions.clear();
 

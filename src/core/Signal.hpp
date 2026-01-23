@@ -3,8 +3,8 @@
 
 #include <signal.h>
 
-extern volatile bool    g_running;
+extern volatile sig_atomic_t g_running;  // ← Tipo correto
 
-void    setupSignalHandlers();
+void setupSignalHandlers();
 
 #endif
