@@ -7,7 +7,7 @@ The main goal of this project is to understand how a web server works internally
 
 The server can handle multiple client connections simultaneously, parse HTTP requests, and return appropriate responses. It supports basic HTTP methods like **GET** and **POST**, serves static files, manages configuration files, and follows the HTTP/1.1 protocol specifications.
 
-This project explores fundamental low-level networking concepts, such as sockets, non-blocking I/O, multiplexing with `poll`, and proper resource management. The focus is on performance, stability, and compliance with the HTTP standard.
+This project explores fundamental low-level networking concepts, such as sockets, non-blocking I/O, multiplexing with `epoll`, and proper resource management. The focus is on performance, stability, and compliance with the HTTP standard.
 
 ## **Instructions**
 
